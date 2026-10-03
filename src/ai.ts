@@ -1,29 +1,17 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { loadProviderConfig, type ProviderConfig, redactSecrets } from "./provider-config.js";
 
-export interface AiConfig {
-  provider: "openai-compatible" | "anthropic";
-  apiKey: string;
-  baseUrl: string;
-  model: string;
-}
+export type AiConfig = ProviderConfig;
 
 export function loadAiConfig(env = process.env): AiConfig {
-  const provider = env.PRAC_AI_PROVIDER ?? "openai-compatible";
-  if (provider !== "openai-compatible" && provider !== "anthropic") {
-    throw new Error(`Unsupported PRAC_AI_PROVIDER: ${provider}`);
-  }
-  const apiKey = env.PRAC_AI_API_KEY;
-  if (!apiKey) throw new Error("PRAC_AI_API_KEY is not set. See .env.example.");
-  return {
-    provider,
-    apiKey,
-    baseUrl:
-      env.PRAC_AI_BASE_URL ??
-      (provider === "anthropic" ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"),
-    model: env.PRAC_AI_MODEL ?? (provider === "anthropic" ? "claude-sonnet-4-5" : "gpt-5-mini"),
-  };
+  const provider = env.PRAC_AI_PROVIDER === "anthropic" ? "anthropic" : "openai-compatible";
+  const apiKey = env.PRAC_AI_API_KEY ?? (provider === "anthropic" ? env.ANTHROPIC_API_KEY : env.OPENAI_API_KEY);
+  if (!apiKey) throw new Error("No API key configured. Run `prac provider setup` or set PRAC_AI_API_KEY.");
+  return { provider, apiKey, baseUrl: env.PRAC_AI_BASE_URL ?? (provider === "anthropic" ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"), model: env.PRAC_AI_MODEL ?? (provider === "anthropic" ? "claude-sonnet-4-5" : "gpt-5-mini") };
 }
+
+export async function loadAiConfigAsync(env = process.env): Promise<AiConfig> { return loadProviderConfig(env); }
 
 export async function askAi(
   system: string,
@@ -45,7 +33,7 @@ export async function askAi(
         messages: [{ role: "user", content: prompt }],
       }),
     });
-    if (!response.ok) throw new Error(`AI provider returned ${response.status}: ${await response.text()}`);
+    if (!response.ok) throw new Error(redactSecrets(`AI provider returned ${response.status}: ${await response.text()}`, [config.apiKey]));
     const body = (await response.json()) as { content?: Array<{ type: string; text?: string }> };
     return body.content?.find((item) => item.type === "text")?.text ?? "";
   }
@@ -64,7 +52,7 @@ export async function askAi(
       ],
     }),
   });
-  if (!response.ok) throw new Error(`AI provider returned ${response.status}: ${await response.text()}`);
+  if (!response.ok) throw new Error(redactSecrets(`AI provider returned ${response.status}: ${await response.text()}`, [config.apiKey]));
   const body = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
   return body.choices?.[0]?.message?.content ?? "";
 }

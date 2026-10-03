@@ -3,7 +3,7 @@ import path from "node:path";
 import { Agent, type AgentMessage, type AgentTool } from "@earendil-works/pi-agent-core";
 import { Type, type Model, type Static, type TSchema } from "@earendil-works/pi-ai";
 import { streamSimple } from "@earendil-works/pi-ai/compat";
-import { fetchPublicPage, loadAiConfig } from "./ai.js";
+import { fetchPublicPage, loadAiConfigAsync, type AiConfig } from "./ai.js";
 import { ChatStore } from "./chat-store.js";
 import { PracticeWorkspace } from "./practice.js";
 import { slugify } from "./store.js";
@@ -41,7 +41,7 @@ export async function createPracticeAgent(root = process.cwd()): Promise<Practic
     throw new Error("Contest mode is on, so AI chat is locked. Disable it with `prac contest off` after the restricted session.");
   }
 
-  const config = loadAiConfig();
+  const config = await loadAiConfigAsync();
   const chatStore = new ChatStore(root);
   const chat = await chatStore.load();
   const model = modelFromConfig(config);
@@ -87,7 +87,7 @@ export async function createPracticeAgent(root = process.cwd()): Promise<Practic
   return { agent, workspace, chatStore, modelLabel: `${config.provider} / ${config.model}` };
 }
 
-function modelFromConfig(config: ReturnType<typeof loadAiConfig>): Model<"openai-completions" | "anthropic-messages"> {
+function modelFromConfig(config: AiConfig): Model<"openai-completions" | "anthropic-messages"> {
   const common = {
     id: config.model,
     name: config.model,
