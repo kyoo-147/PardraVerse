@@ -10,6 +10,7 @@ import { judgeFile } from "./runner.js";
 import { slugify, Store, uniqueId } from "./store.js";
 import type { Attempt, Language, Problem } from "./types.js";
 import { serveDashboard } from "./web.js";
+import { launchChat } from "./tui.js";
 
 const program = new Command();
 const store = new Store();
@@ -17,9 +18,14 @@ const languageExtensions: Record<Language, string> = { cpp: "cpp", python: "py",
 
 program
   .name("prac")
-  .description("CLI-first local practice lab for coding and algorithms")
-  .version("0.1.0")
-  .showSuggestionAfterError();
+  .description("Chat-first local practice agent for coding and algorithms")
+  .version("0.2.0")
+  .showSuggestionAfterError()
+  .action(async () => launchChat());
+
+program.command("chat")
+  .description("open the conversational terminal workspace")
+  .action(async () => launchChat());
 
 program.command("init")
   .description("initialize a local practice workspace")
@@ -29,7 +35,7 @@ program.command("init")
     await store.init();
     console.log(existed ? pc.yellow("Practice workspace already exists.") : pc.green("Created .prac/state.json"));
     if (options.codetour) await installCodeTour();
-    console.log(`Next: ${pc.cyan("prac topic add \"Prefix sums\"")} or ${pc.cyan("prac track install codetour")}`);
+    console.log(`Next: run ${pc.cyan("prac")}, then describe what you want to practice.`);
   });
 
 program.command("status")
@@ -259,7 +265,7 @@ program.command("doctor")
 program.command("serve")
   .description("open a simple local read-only web dashboard")
   .option("-p, --port <number>", "local port", "4173")
-  .action(async (options: { port: string }) => serveDashboard(await store.load(), Number(options.port)));
+  .action(async (options: { port: string }) => serveDashboard(() => store.load(), Number(options.port)));
 
 async function createSolutionFile(problem: Problem): Promise<void> {
   const file = solutionPath(problem);

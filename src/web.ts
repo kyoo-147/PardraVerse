@@ -2,54 +2,100 @@ import { createServer } from "node:http";
 import type { PracState } from "./types.js";
 
 function esc(value: unknown): string {
-  return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]!);
+  return String(value).replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character]!);
 }
 
-function formatDuration(startedAt?: string): string {
-  if (!startedAt) return "READY";
-  const minutes = Math.max(1, Math.floor((Date.now() - new Date(startedAt).getTime()) / 60_000));
-  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+function elapsed(startedAt?: string): string {
+  if (!startedAt) return "idle";
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 60_000));
+  return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
 export function dashboardHtml(state: PracState): string {
-  const accepted = new Set(state.attempts.filter((attempt) => attempt.verdict === "accepted").map((attempt) => attempt.problemId));
+  const accepted = new Set(
+    state.attempts.filter((attempt) => attempt.verdict === "accepted").map((attempt) => attempt.problemId),
+  );
   const activeProblem = state.problems.find((problem) => problem.id === state.activeSession?.problemId);
   const progress = state.problems.length ? Math.round((accepted.size / state.problems.length) * 100) : 0;
-  const rows = state.problems
-    .map((problem, index) => {
-      const attempts = state.attempts.filter((attempt) => attempt.problemId === problem.id);
-      const isActive = problem.id === state.activeSession?.problemId;
-      return `<tr class="${isActive ? "active-row" : ""}"><td class="index">${String(index + 1).padStart(2, "0")}</td><td><span class="status ${accepted.has(problem.id) ? "done" : isActive ? "live" : ""}"></span></td><td><strong>${esc(problem.title)}</strong><small>${esc(problem.id)}</small></td><td><span class="topic">${esc(problem.topic)}</span></td><td><span class="level ${esc(problem.difficulty)}">${esc(problem.difficulty)}</span></td><td class="attempts">${attempts.length || "—"}</td></tr>`;
-    })
-    .join("");
-  const topicRows = state.topics
-    .slice(0, 8)
-    .map((topic, index) => `<li><span class="topic-no">${String(index + 1).padStart(2, "0")}</span><div><strong>${esc(topic.name)}</strong><span>${esc(topic.description)}</span></div></li>`)
-    .join("");
-  const mode = state.contestMode ? "CONTEST LOCK" : "PRACTICE MODE";
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>coding_prac — local practice console</title><style>
-:root{color-scheme:dark;--ink:#080a09;--panel:#101310;--panel2:#151915;--line:#2a312b;--text:#eef3ec;--muted:#7f8a80;--acid:#baf84b;--acid-dim:#5d7c2a;--amber:#ffca64;--red:#ff745f;--blue:#82b8ff;--display:Bahnschrift,'Segoe UI Variable Display','Arial Narrow',sans-serif;--mono:'Cascadia Code','SFMono-Regular',Consolas,monospace}*{box-sizing:border-box}html{background:var(--ink)}body{margin:0;min-height:100vh;background:radial-gradient(circle at 82% 8%,rgba(186,248,75,.06),transparent 26%),linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px),var(--ink);background-size:auto,48px 48px,48px 48px;color:var(--text);font:14px/1.5 var(--mono)}.shell{width:min(1440px,calc(100% - 40px));margin:20px auto 70px;border:1px solid var(--line);background:rgba(8,10,9,.94);box-shadow:0 36px 120px #000}.topbar{height:43px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 16px;color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase}.brand-mini{display:flex;align-items:center;gap:10px;color:var(--text);font-family:var(--display);font-weight:600}.mark{width:14px;height:14px;border:1px solid var(--acid);position:relative}.mark:after{content:'';position:absolute;background:var(--acid);width:5px;height:5px;right:-3px;bottom:-3px}.sys{display:flex;gap:22px}.online:before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--acid);box-shadow:0 0 12px var(--acid);margin-right:8px}.hero{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(300px,.75fr);border-bottom:1px solid var(--line)}.intro{padding:58px 48px 52px;border-right:1px solid var(--line)}.eyebrow{color:var(--acid);font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin-bottom:20px}.intro h1{font:600 clamp(54px,7vw,104px)/.84 var(--display);letter-spacing:-.075em;margin:0;max-width:900px}.intro h1 span{color:var(--acid)}.intro p{margin:32px 0 0;max-width:660px;color:#a8b0a8;font-size:15px}.cursor{display:inline-block;width:.09em;height:.78em;background:var(--acid);margin-left:.08em;animation:blink 1.1s steps(1) infinite}@keyframes blink{50%{opacity:0}}.session{padding:34px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(145deg,rgba(186,248,75,.035),transparent)}.session-label{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.18em}.timer{font:500 clamp(52px,6vw,84px)/1 var(--display);letter-spacing:-.06em;margin:12px 0;color:${state.activeSession ? "var(--acid)" : "var(--text)"}}.session h2{font:600 22px/1.1 var(--display);margin:22px 0 8px}.session p{color:var(--muted);margin:0;font-size:12px}.session-meta{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin-top:30px}.session-meta div{background:var(--panel);padding:12px}.session-meta b,.session-meta span{display:block}.session-meta b{font:500 16px var(--display)}.session-meta span{font-size:9px;color:var(--muted);text-transform:uppercase;margin-top:4px}.stats{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line)}.stat{padding:24px 28px;border-right:1px solid var(--line);position:relative}.stat:last-child{border:0}.stat b{font:600 34px var(--display);letter-spacing:-.04em}.stat span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.14em;margin-top:4px}.stat .bar{height:2px;background:#222822;margin-top:16px}.stat .bar i{display:block;height:100%;background:var(--acid);width:${progress}%}.workspace{display:grid;grid-template-columns:minmax(0,2fr) minmax(290px,.75fr)}.board{padding:34px;border-right:1px solid var(--line)}.side{padding:34px}.section-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:20px}.section-head h2{font:600 22px var(--display);margin:0}.section-head span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}table{width:100%;border-collapse:collapse;border:1px solid var(--line)}td,th{text-align:left;padding:13px 12px;border-bottom:1px solid var(--line)}th{font-size:9px;color:var(--muted);font-weight:400;text-transform:uppercase;letter-spacing:.12em;background:#0d100e}.index{color:#4d574e;width:46px}.status{display:block;width:8px;height:8px;border:1px solid #566057}.status.done{background:var(--acid);border-color:var(--acid);box-shadow:0 0 9px rgba(186,248,75,.4)}.status.live{border-color:var(--amber);background:var(--amber)}td strong{font:500 14px var(--display)}small{display:block;color:var(--muted);font-size:9px;margin-top:2px}.topic{color:var(--blue);font-size:10px}.level{font-size:9px;text-transform:uppercase;padding:4px 6px;border:1px solid var(--line)}.level.medium{color:var(--amber)}.level.hard{color:var(--red)}.attempts{text-align:center}.active-row{background:rgba(255,202,100,.035)}ul{padding:0;margin:0;border:1px solid var(--line)}li{list-style:none;display:flex;gap:14px;padding:14px;border-bottom:1px solid var(--line)}li:last-child{border:0}.topic-no{color:var(--acid);font-size:10px;padding-top:2px}li strong{font:500 13px var(--display)}li div span{display:block;color:var(--muted);font-size:9px;margin-top:3px;line-height:1.35}.command{margin-top:28px;border:1px solid var(--line);background:var(--panel);padding:15px}.command span{color:var(--acid)}.command code{color:#cad1c9}.foot{border-top:1px solid var(--line);padding:14px 20px;display:flex;justify-content:space-between;color:#59625a;font-size:9px;text-transform:uppercase;letter-spacing:.1em}@media(max-width:900px){.hero,.workspace{grid-template-columns:1fr}.intro,.board{border-right:0;border-bottom:1px solid var(--line)}.stats{grid-template-columns:1fr 1fr}.stat:nth-child(2){border-right:0}.stat:nth-child(-n+2){border-bottom:1px solid var(--line)}}@media(max-width:640px){.shell{width:100%;margin:0;border-left:0;border-right:0}.sys span:not(.online){display:none}.intro,.session,.board,.side{padding:26px 20px}.intro h1{font-size:52px}.stats{grid-template-columns:1fr 1fr}.stat{padding:18px}table{font-size:11px}.topic,th:nth-child(4),td:nth-child(4){display:none}.foot{display:none}}
-</style></head><body><main class="shell"><div class="topbar"><div class="brand-mini"><span class="mark"></span>coding_prac / local</div><div class="sys"><span>${esc(mode)}</span><span class="online">runtime online</span></div></div><section class="hero"><div class="intro"><div class="eyebrow">// deliberate practice console</div><h1>Think first.<br>Code <span>by hand</span><i class="cursor"></i></h1><p>A local-first training ground for algorithms, implementation, and contest discipline. No locked courses. No leaderboard theater. Just attempts, evidence, and better instincts.</p></div><aside class="session"><div><span class="session-label">current session</span><div class="timer">${formatDuration(state.activeSession?.startedAt)}</div><h2>${esc(activeProblem?.title ?? state.activeSession?.goal ?? "No active drill")}</h2><p>${esc(state.activeSession?.goal ?? "Start one from the CLI: prac session start <problem>")}</p></div><div class="session-meta"><div><b>${activeProblem ? esc(activeProblem.difficulty) : "—"}</b><span>difficulty</span></div><div><b>${activeProblem ? esc(activeProblem.topic) : "open"}</b><span>focus</span></div></div></aside></section><section class="stats"><div class="stat"><b>${String(state.problems.length).padStart(2, "0")}</b><span>problems loaded</span></div><div class="stat"><b>${String(accepted.size).padStart(2, "0")}</b><span>accepted locally</span></div><div class="stat"><b>${String(state.attempts.length).padStart(2, "0")}</b><span>recorded attempts</span></div><div class="stat"><b>${progress}%</b><span>track progress</span><div class="bar"><i></i></div></div></section><section class="workspace"><div class="board"><div class="section-head"><h2>Problem queue</h2><span>local evidence / ${state.problems.length} entries</span></div><table><thead><tr><th>#</th><th></th><th>Problem</th><th>Topic</th><th>Level</th><th>Runs</th></tr></thead><tbody>${rows || '<tr><td colspan="6">No problems yet. Run prac track install codetour.</td></tr>'}</tbody></table><div class="command"><span>❯</span> <code>prac judge ${esc(activeProblem?.id ?? state.problems[0]?.id ?? "problem-id")}</code></div></div><aside class="side"><div class="section-head"><h2>Learning map</h2><span>open track</span></div><ul>${topicRows || "<li>No topics yet.</li>"}</ul></aside></section><footer class="foot"><span>data stays in .prac/state.json</span><span>ai coaching disabled in contest mode</span><span>v0.1.0</span></footer></main></body></html>`;
+  const problems = state.problems.map((problem) => {
+    const attempts = state.attempts.filter((attempt) => attempt.problemId === problem.id).length;
+    const active = problem.id === state.activeSession?.problemId;
+    return `<tr${active ? ' class="active"' : ""}>
+      <td><span class="dot ${accepted.has(problem.id) ? "accepted" : active ? "current" : ""}" aria-hidden="true"></span><span class="sr-only">${accepted.has(problem.id) ? "accepted" : active ? "current" : "not accepted"}</span></td>
+      <td><strong>${esc(problem.title)}</strong><small>${esc(problem.id)}</small></td>
+      <td>${esc(problem.topic)}</td>
+      <td>${esc(problem.difficulty)}</td>
+      <td class="number">${attempts || "—"}</td>
+    </tr>`;
+  }).join("");
+  const activity = state.attempts.slice(-6).reverse().map((attempt) => {
+    const problem = state.problems.find((candidate) => candidate.id === attempt.problemId);
+    return `<li><span class="verdict ${esc(attempt.verdict)}">${esc(attempt.verdict.replace("-", " "))}</span><div><strong>${esc(problem?.title ?? attempt.problemId)}</strong><small>${esc(new Date(attempt.at).toLocaleString())} · ${attempt.passed}/${attempt.total}</small></div></li>`;
+  }).join("");
+  const topics = state.topics.slice(0, 8).map((topic) => `<li><strong>${esc(topic.name)}</strong><small>${esc(topic.description || topic.id)}</small></li>`).join("");
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>coding_prac workspace</title>
+<style>
+:root{color-scheme:dark;--bg:#0c0d0c;--surface:#121412;--raised:#171a17;--line:#292d29;--text:#f0f2ec;--muted:#8b9288;--green:#b7f36b;--amber:#f0c36b;--red:#ed756d;--blue:#8ab4ef;--mono:"Cascadia Code","SFMono-Regular",Consolas,monospace;--sans:"Segoe UI Variable",Inter,system-ui,sans-serif}*{box-sizing:border-box}html{background:var(--bg)}body{margin:0;color:var(--text);background:var(--bg);font:14px/1.5 var(--sans)}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.app{min-height:100vh;display:grid;grid-template-rows:auto 1fr auto}.top{height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 max(22px,calc((100vw - 1280px)/2));font-family:var(--mono)}.brand{font-weight:700;letter-spacing:-.03em}.brand span{color:var(--green)}.mode{font-size:11px;color:${state.contestMode ? "var(--amber)" : "var(--muted)"};text-transform:uppercase;letter-spacing:.08em}.layout{width:min(1280px,calc(100% - 44px));margin:36px auto;display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:32px}.main,.side{min-width:0}.intro{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:28px}.intro h1{margin:0;font-size:clamp(30px,4vw,52px);line-height:1;letter-spacing:-.055em;font-weight:650}.intro p{margin:0;color:var(--muted);font-family:var(--mono);font-size:12px}.stats{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);margin-bottom:20px;background:var(--surface)}.stat{padding:18px 20px;border-right:1px solid var(--line)}.stat:last-child{border:0}.stat b{display:block;font:600 24px/1 var(--mono)}.stat span{display:block;color:var(--muted);font-size:11px;margin-top:8px}.progress{height:2px;background:var(--line);margin-top:12px}.progress i{display:block;height:100%;background:var(--green);width:${progress}%}.panel{border:1px solid var(--line);background:var(--surface);margin-bottom:20px}.panel-head{height:50px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.panel-head h2{font-size:13px;margin:0}.panel-head span{font:10px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.08em}table{width:100%;border-collapse:collapse}th,td{text-align:left;border-bottom:1px solid var(--line);padding:13px 12px}th{font:11px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}tbody tr:last-child td{border-bottom:0}tbody tr.active{background:#1a1b16}td:first-child{width:32px}td strong{display:block;font-size:13px;font-weight:600}td small,.side small{display:block;color:var(--muted);font:11px/1.4 var(--mono);margin-top:3px}.number{text-align:right;font-family:var(--mono)}.dot{display:block;width:7px;height:7px;border:1px solid #788176}.dot.accepted{border-color:var(--green);background:var(--green)}.dot.current{border-color:var(--amber);background:var(--amber)}.session{padding:20px}.session .label{font:10px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.session .time{font:600 36px/1 var(--mono);margin:12px 0 18px;color:${state.activeSession ? "var(--green)" : "var(--muted)"}}.session h2{font-size:18px;line-height:1.2;margin:0 0 7px}.session p{margin:0;color:var(--muted);font-size:12px}.meta{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line);margin:20px -20px -20px}.meta div{padding:13px 20px;border-right:1px solid var(--line)}.meta div:last-child{border:0}.meta b{display:block;font:12px var(--mono)}.meta span{font-size:11px;color:var(--muted);text-transform:uppercase}.plain-list{margin:0;padding:0}.plain-list li{list-style:none;display:flex;gap:12px;padding:13px 16px;border-bottom:1px solid var(--line)}.plain-list li:last-child{border:0}.plain-list strong{font-size:12px}.verdict{font:11px var(--mono);text-transform:uppercase;color:var(--amber);width:92px;padding-top:2px}.verdict.accepted{color:var(--green)}.verdict.compile-error,.verdict.runtime-error,.verdict.wrong-answer{color:var(--red)}.terminal{width:min(1280px,calc(100% - 44px));margin:0 auto 30px;border:1px solid var(--line);background:var(--raised);padding:14px 16px;color:var(--muted);font:12px var(--mono)}.terminal b{color:var(--green);font-weight:400}.terminal code{color:var(--text)}@media(max-width:850px){.layout{grid-template-columns:1fr}.side{display:grid;grid-template-columns:1fr 1fr;gap:20px}.side .panel{margin:0}.side .panel:last-child{grid-column:1/-1}.intro{align-items:start;flex-direction:column}.stats{grid-template-columns:1fr 1fr}.stat:nth-child(2){border-right:0}.stat:last-child{grid-column:1/-1;border-top:1px solid var(--line)}}@media(max-width:620px){.top{padding:0 16px}.layout,.terminal{width:calc(100% - 24px)}.layout{margin:24px auto}.side{grid-template-columns:1fr}.side .panel:last-child{grid-column:auto}.stats{grid-template-columns:1fr}.stat,.stat:nth-child(2){border-right:0;border-bottom:1px solid var(--line)}.stat:last-child{grid-column:auto;border-bottom:0}.panel{overflow:hidden}.table-scroll{overflow-x:auto}table{white-space:nowrap}.intro h1{font-size:34px}th:nth-child(3),td:nth-child(3){display:none}}
+@media(max-width:620px){th:nth-child(5),td:nth-child(5){display:none}}
+</style>
+</head>
+<body><div class="app">
+<header class="top"><div class="brand">coding_<span>prac</span></div><div class="mode">${state.contestMode ? "contest lock" : "local workspace"}</div></header>
+<div class="layout"><main class="main">
+<section class="intro"><h1>Your practice,<br>in one place.</h1><p>${state.activeSession ? "session in progress" : "ready when you are"}</p></section>
+<section class="stats" aria-label="Practice summary"><div class="stat"><b>${accepted.size}/${state.problems.length}</b><span>accepted</span><div class="progress"><i></i></div></div><div class="stat"><b>${state.attempts.length}</b><span>attempts recorded</span></div><div class="stat"><b>${state.topics.length}</b><span>topics in your map</span></div></section>
+<section class="panel"><div class="panel-head"><h2>Problems</h2><span>${state.problems.length} total</span></div><div class="table-scroll"><table aria-label="Practice problems"><thead><tr><th scope="col">Status</th><th scope="col">Problem</th><th scope="col">Topic</th><th scope="col">Level</th><th scope="col" class="number">Runs</th></tr></thead><tbody>${problems || '<tr><td colspan="5">No problems yet. Start in the terminal and describe what you want to practice.</td></tr>'}</tbody></table></div></section>
+</main><aside class="side">
+<section class="panel"><div class="panel-head"><h2>Current session</h2><span>${elapsed(state.activeSession?.startedAt)}</span></div><div class="session"><span class="label">focus</span><div class="time">${elapsed(state.activeSession?.startedAt)}</div><h2>${esc(activeProblem?.title ?? state.activeSession?.goal ?? "Nothing active")}</h2><p>${esc(state.activeSession?.goal ?? "Tell the terminal agent what you want to work on.")}</p><div class="meta"><div><b>${esc(activeProblem?.difficulty ?? "—")}</b><span>level</span></div><div><b>${esc(activeProblem?.language ?? "—")}</b><span>language</span></div></div></div></section>
+<section class="panel"><div class="panel-head"><h2>Recent activity</h2><span>latest</span></div><ul class="plain-list">${activity || "<li><div><strong>No attempts yet</strong><small>Run a solution from the terminal.</small></div></li>"}</ul></section>
+<section class="panel"><div class="panel-head"><h2>Learning map</h2><span>open-ended</span></div><ul class="plain-list">${topics || "<li><div><strong>No topics yet</strong><small>Add any subject you want to learn.</small></div></li>"}</ul></section>
+</aside></div>
+<div class="terminal"><b>❯</b> <code>prac</code> <span>— continue in the conversational terminal</span></div>
+</div></body></html>`;
 }
 
-export async function serveDashboard(state: PracState, port: number): Promise<void> {
-  const server = createServer((request, response) => {
-    if (request.url === "/api/state") {
-      response.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
-      response.end(JSON.stringify(state));
-      return;
+export async function serveDashboard(loadState: () => Promise<PracState>, port: number): Promise<void> {
+  const server = createServer(async (request, response) => {
+    try {
+      if (request.url === "/api/state") {
+        const state = await loadState();
+        response.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+        response.end(JSON.stringify(state));
+        return;
+      }
+      if (request.url === "/favicon.ico") {
+        response.writeHead(204, { "cache-control": "public, max-age=86400" }).end();
+        return;
+      }
+      if (request.url !== "/" && request.url !== "/index.html") {
+        response.writeHead(404).end("Not found");
+        return;
+      }
+      const state = await loadState();
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+      response.end(dashboardHtml(state));
+    } catch (error) {
+      response.writeHead(500, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+      response.end(error instanceof Error ? error.message : "Could not load workspace state");
     }
-    if (request.url !== "/" && request.url !== "/index.html") {
-      response.writeHead(404).end("Not found");
-      return;
-    }
-    response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
-    response.end(dashboardHtml(state));
   });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(port, "127.0.0.1", resolve);
   });
-  console.log(`Dashboard: http://127.0.0.1:${port}`);
+  console.log(`Workspace: http://127.0.0.1:${port}`);
   console.log("Press Ctrl+C to stop.");
 }

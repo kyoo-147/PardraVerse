@@ -1,67 +1,75 @@
 # Roadmap
 
-Keep each phase useful by itself. Do not add infrastructure before its acceptance check is needed.
+Keep every phase useful on its own. Add infrastructure only when a measured workflow needs it.
 
-## v0.1 — local practice loop (implemented)
+## v0.1 — local practice core
 
-- [x] Topics and editable problems
-- [x] C++20, Python, and JavaScript local execution
+- [x] Open-ended topics and editable problems
+- [x] C++20, Python, and JavaScript execution
 - [x] Local test verdicts and attempt history
 - [x] Focused session timer and reflection log
-- [x] Editable Code Tour starter track
 - [x] OpenAI-compatible and Anthropic coaching
-- [x] Contest-mode AI lock
-- [x] Public-link study brief
-- [x] Minimal read-only web dashboard
+- [x] Fail-closed contest lock
+- [x] Public-link study notes
+- [x] Read-only local web view
 
-## v0.2 — stronger learning feedback
+## v0.2 — conversational workspace
 
-Build only after using v0.1 on at least 20 real attempts.
+- [x] Full-screen chat as the default interface
+- [x] Narrow typed practice tools instead of a general shell
+- [x] Progressive coaching policy and explicit solution-writing boundary
+- [x] Restorable chat transcript and archived sessions
+- [x] Append-only runtime/tool lifecycle events
+- [x] Local-only conversation when AI is unavailable or locked
+- [x] Compact web workspace redesign
+- [x] Explicit commands retained for scripts and recovery
 
-- Failure taxonomy: idea/proof/complexity/implementation/edge-case/time
+Acceptance: a new user can initialize the workspace, open `prac`, describe a learning goal, create or choose a problem, run local evidence, and continue the conversation after restarting without memorizing the command tree.
+
+## v0.3 — stronger learning feedback
+
+Build after collecting real attempt history.
+
+- Failure taxonomy: idea, proof, complexity, implementation, edge case, and time
 - Review queue based on failed attempts and elapsed time
-- Property-based and randomized test generation with saved seeds
-- Diff modes for whitespace-sensitive and numeric-tolerance problems
-- Import a local problem package without scraping protected judges
-- Export a self-prepared C++ template file
-- Mock-contest sessions with freeze, penalty, and partial-score notes
+- Property-based and randomized tests with saved seeds
+- Whitespace-sensitive and numeric-tolerance comparison modes
+- Import/export for local problem packages
+- Learner-owned reusable template files
 
-Acceptance: a learner can explain what failed, what to revisit, and whether the next attempt improved without manually reconstructing history.
+Acceptance: the learner can explain what failed, what to revisit, and whether the next attempt improved without reconstructing history manually.
 
-## v0.3 — safe runner
+## v0.4 — isolated runner
 
-- Container/WSL backend
-- No network by default
+- Container or WSL backend
+- Network disabled by default
 - CPU, memory, process, output, and filesystem limits
 - Per-language compiler profiles
-- Clear distinction between trusted local mode and sandboxed mode
+- Clear `trusted-local` versus `isolated` runtime labels
 
-Acceptance: an adversarial test corpus cannot read host files, access the network, fork-bomb, or exceed configured resources.
+Acceptance: an adversarial validation corpus cannot read host files, access the network, fork-bomb, or exceed configured resources.
 
-## v0.4 — research and planning
+## v0.5 — evidence-backed research
 
 - Multi-source research with claim-to-URL citations
-- Adapter for official contest/job APIs where available
-- Extracted skill graph remains proposed until user approves it
-- Convert approved gaps into topics/drills
+- Adapters for documented public APIs
 - Freshness dates and stale-source warnings
+- Proposed skill maps that require learner approval
+- Convert approved gaps into editable topics and drills
 
-Acceptance: every factual requirement is traceable to a source or marked unknown; generated drills are editable.
+Acceptance: each factual requirement is traceable to a source or marked unknown, and every generated plan remains editable.
 
-## v0.5 — optional interactive TUI/Web UI
+## Build only when justified
 
-Only add after command usage shows which views deserve permanence.
+- SQLite, when JSON queries or concurrent writers become a real limit
+- A local daemon, when detached long-running work has a demonstrated use case
+- A richer web client, when read-only views are insufficient for an observed workflow
+- Plugin/MCP support, when a concrete integration cannot fit the narrow tool boundary
 
-- Keyboard-first TUI for problem queue, timer, and verdicts
-- Live local dashboard updates
-- No visual course lock; arbitrary topics stay first-class
-- Import/export rather than cloud account dependency
+## Non-goals
 
-## Explicit non-goals for now
-
-- Rebuilding Codex, Pi, Grok Build, or Herdr
-- Autonomous solution generation as the default learning path
-- Scraping or submitting to judges without documented permission/API
-- Claiming the timeout-only runner is a sandbox
-- Account system, billing, social feed, badges, or course marketplace
-- Heavy frontend design system
+- Rebuilding Pi, Codex, Grok Build, or Herdr
+- Autonomous answer generation as the default learning path
+- A fixed course catalog or required learning sequence
+- Accounts, billing, social rankings, badges, or a marketplace
+- Protected-judge scraping or unsupported automated submission

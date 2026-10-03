@@ -6,15 +6,15 @@
 
 ## AI credentials
 
-Provider keys are read from environment variables and are never intentionally persisted. `.env*` is ignored except for `.env.example`.
+Provider keys are read from environment variables and are never intentionally persisted. `.env*` is ignored except for `.env.example`. Chat transcripts and tool lifecycle events are stored locally under `.prac/`; do not paste secrets into the conversation.
 
 ## Public URL research
 
-Only HTTP(S) URLs are accepted. Fetches have a timeout and content bound. Retrieved text is treated as untrusted data in the model prompt. This reduces prompt-injection risk but does not eliminate model mistakes; verify generated study briefs against their sources.
+Only HTTP(S) URLs are accepted; embedded credentials and hostnames resolving to local/private addresses are rejected on each redirect. Fetches have a timeout and content bound. Retrieved text is treated as untrusted data in the model prompt. This reduces SSRF and prompt-injection risk but does not make web research a security boundary; verify generated study briefs against their sources.
 
 ## Contest mode
 
-Contest mode blocks this application's AI commands. It cannot disable AI features in editors, terminals, operating systems, or other applications. Follow the current official contest rules.
+Contest mode prevents this application from creating AI requests and leaves only deterministic local actions available. It cannot disable AI features in editors, terminals, operating systems, or other applications. Follow the applicable rules.
 
 ## Reporting
 

@@ -19,10 +19,11 @@ export function normalizeOutput(value: string): string {
 export async function runProcess(
   command: string,
   args: string[],
-  options: { input?: string; cwd?: string; timeoutMs?: number } = {},
+  options: { input?: string; cwd?: string; timeoutMs?: number; signal?: AbortSignal } = {},
 ): Promise<ProcessResult> {
   const started = performance.now();
   return new Promise((resolve, reject) => {
+    options.signal?.throwIfAborted();
     const child = spawn(command, args, {
       cwd: options.cwd,
       windowsHide: true,
@@ -31,6 +32,12 @@ export async function runProcess(
     let stdout = "";
     let stderr = "";
     let timedOut = false;
+    let aborted = false;
+    const abort = () => {
+      aborted = true;
+      child.kill("SIGKILL");
+    };
+    options.signal?.addEventListener("abort", abort, { once: true });
     const timeout = setTimeout(() => {
       timedOut = true;
       child.kill("SIGKILL");
@@ -42,10 +49,16 @@ export async function runProcess(
     child.stderr.on("data", (chunk: string) => (stderr += chunk));
     child.on("error", (error) => {
       clearTimeout(timeout);
+      options.signal?.removeEventListener("abort", abort);
       reject(error);
     });
     child.on("close", (code) => {
       clearTimeout(timeout);
+      options.signal?.removeEventListener("abort", abort);
+      if (aborted) {
+        reject(options.signal?.reason ?? new DOMException("Aborted", "AbortError"));
+        return;
+      }
       resolve({ code, stdout, stderr, timedOut, durationMs: performance.now() - started });
     });
     child.stdin.end(options.input ?? "");
@@ -57,6 +70,7 @@ export async function judgeFile(options: {
   file: string;
   tests: TestCase[];
   timeoutMs?: number;
+  signal?: AbortSignal;
 }): Promise<{ compileError?: string; results: RunResult[] }> {
   const workspace = await mkdtemp(path.join(os.tmpdir(), "prac-"));
   try {
@@ -70,9 +84,10 @@ export async function judgeFile(options: {
         compile = await runProcess(
           "g++",
           [options.file, "-std=c++20", "-O2", "-pipe", "-o", binary],
-          { timeoutMs: 20_000 },
+          { timeoutMs: 20_000, signal: options.signal },
         );
       } catch (error) {
+        if (options.signal?.aborted) throw options.signal.reason ?? error;
         return { compileError: `Could not start g++: ${(error as Error).message}`, results: [] };
       }
       if (compile.code !== 0) return { compileError: compile.stderr || compile.stdout, results: [] };
@@ -93,8 +108,10 @@ export async function judgeFile(options: {
         execution = await runProcess(command, args, {
           input: test.input,
           timeoutMs: options.timeoutMs ?? 2_000,
+          signal: options.signal,
         });
       } catch (error) {
+        if (options.signal?.aborted) throw options.signal.reason ?? error;
         results.push({
           name: test.name,
           verdict: "runtime-error",

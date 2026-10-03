@@ -1,7 +1,7 @@
 {
   "name": "coding-prac",
-  "version": "0.1.0",
-  "description": "CLI-first local practice lab for algorithms, coding drills, and AI-assisted study.",
+  "version": "0.2.0",
+  "description": "Chat-first local coding and algorithm practice agent.",
   "type": "module",
   "bin": {
     "prac": "dist/cli.js"
@@ -20,9 +20,12 @@
     "check": "npm run typecheck && npm test && npm run build"
   },
   "engines": {
-    "node": ">=20.11"
+    "node": ">=22.19"
   },
   "dependencies": {
+    "@earendil-works/pi-agent-core": "^1.0.0",
+    "@earendil-works/pi-ai": "^1.0.0",
+    "@earendil-works/pi-tui": "^1.0.0",
     "commander": "^14.0.1",
     "picocolors": "^1.1.1"
   },

@@ -74,15 +74,15 @@ Never pretend code was executed. Prefer questions, invariants, counterexamples, 
 Do not give a complete solution unless the learner explicitly asks for one after attempting the problem.
 Keep advice language-agnostic unless a language is supplied. Distinguish facts from inference.`;
 
-export async function fetchPublicPage(url: string): Promise<{ title: string; text: string }> {
+export async function fetchPublicPage(url: string, signal?: AbortSignal): Promise<{ title: string; text: string }> {
   let parsed = new URL(url);
   let response: Response | undefined;
   for (let redirects = 0; redirects <= 5; redirects += 1) {
     await assertPublicUrl(parsed);
     response = await fetch(parsed, {
       redirect: "manual",
-      headers: { "user-agent": "coding-prac/0.1 (+local learning tool)" },
-      signal: AbortSignal.timeout(12_000),
+      headers: { "user-agent": "coding-prac/0.2 (+local learning tool)" },
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(12_000)]) : AbortSignal.timeout(12_000),
     });
     if (![301, 302, 303, 307, 308].includes(response.status)) break;
     const location = response.headers.get("location");

@@ -1,11 +1,11 @@
 # Contributing to coding_prac
 
-Thanks for helping improve the local practice lab.
+Thanks for helping improve the local coding-learning agent.
 
 ## Before opening a change
 
 1. Search existing issues and pull requests.
-2. Keep the product CLI-first and local-first.
+2. Keep the product chat-first, terminal-first, and local-first.
 3. Avoid features that lock learners into a fixed course.
 4. Do not add autonomous answer generation as the default learning path.
 5. Keep claims about judging, sandboxing, and contest rules precise.
@@ -16,7 +16,7 @@ For larger changes, open an issue describing the learner problem and the smalles
 
 Requirements:
 
-- Node.js 20.11 or newer
+- Node.js 22.19 or newer
 - npm
 - Optional `g++` for C++20 runner testing
 - Optional Python 3 for Python runner testing
@@ -31,9 +31,15 @@ npm run check
 Run the CLI during development:
 
 ```bash
-npm run dev -- init --codetour
+npm run dev -- init
 npm run dev -- problem list
 npm run dev -- serve
+```
+
+Run the conversational interface in a real terminal:
+
+```bash
+npm run dev
 ```
 
 ## Pull requests

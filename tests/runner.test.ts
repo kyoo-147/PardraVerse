@@ -30,4 +30,20 @@ describe("runner", () => {
     const result = await judgeFile({ language: "javascript", file, tests: [{ name: "case", input: "", expected: "yes\n" }] });
     expect(result.results[0]?.verdict).toBe("wrong-answer");
   });
+  it("cancels a running solution when the caller aborts", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "prac-runner-"));
+    roots.push(root);
+    const file = path.join(root, "loop.cjs");
+    await writeFile(file, "for (;;) {}", "utf8");
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(new Error("cancelled")), 30);
+
+    await expect(judgeFile({
+      language: "javascript",
+      file,
+      tests: [{ name: "loop", input: "", expected: "" }],
+      timeoutMs: 5_000,
+      signal: controller.signal,
+    })).rejects.toThrow("cancelled");
+  });
 });
