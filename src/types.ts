@@ -69,3 +69,19 @@ export interface RunResult {
   actual: string;
   stderr: string;
 }
+
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
+
+export type SessionStatus = "active" | "archived";
+
+export interface ConversationSession {
+  version: 1;
+  id: string;
+  title?: string;
+  problem?: string;
+  goal?: string;
+  createdAt: string;
+  updatedAt: string;
+  status: SessionStatus;
+  messages: AgentMessage[];
+}
