@@ -1,14 +1,14 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
-import { loadProviderConfig, type ProviderConfig, redactSecrets } from "./provider-config.js";
+import { loadProviderConfig, type ProviderConfig, redactSecrets, validateBaseUrl, validateProvider } from "./provider-config.js";
 
 export type AiConfig = ProviderConfig;
 
 export function loadAiConfig(env = process.env): AiConfig {
-  const provider = env.PRAC_AI_PROVIDER === "anthropic" ? "anthropic" : "openai-compatible";
+  const provider = validateProvider(env.PRAC_AI_PROVIDER ?? "openai-compatible");
   const apiKey = env.PRAC_AI_API_KEY ?? (provider === "anthropic" ? env.ANTHROPIC_API_KEY : env.OPENAI_API_KEY);
   if (!apiKey) throw new Error("No API key configured. Run `prac provider setup` or set PRAC_AI_API_KEY.");
-  return { provider, apiKey, baseUrl: env.PRAC_AI_BASE_URL ?? (provider === "anthropic" ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"), model: env.PRAC_AI_MODEL ?? (provider === "anthropic" ? "claude-sonnet-4-5" : "gpt-5-mini") };
+  return { provider, apiKey, baseUrl: validateBaseUrl(env.PRAC_AI_BASE_URL ?? (provider === "anthropic" ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1")), model: env.PRAC_AI_MODEL ?? (provider === "anthropic" ? "claude-sonnet-4-5" : "gpt-5-mini") };
 }
 
 export async function loadAiConfigAsync(env = process.env): Promise<AiConfig> { return loadProviderConfig(env); }

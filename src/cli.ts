@@ -5,7 +5,7 @@ import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { askAi, COACH_SYSTEM, fetchPublicPage, loadAiConfigAsync } from "./ai.js";
-import { configFilePath, loadProviderConfig, readStoredConfig, redactSecrets, saveStoredConfig, validateBaseUrl, validateProvider, type ProviderName } from "./provider-config.js";
+import { configFilePath, defaultsFor, loadProviderConfig, readStoredConfig, redactSecrets, saveStoredConfig, validateBaseUrl, validateProvider, type ProviderName } from "./provider-config.js";
 import { codeTourPlan, codeTourProblems, codeTourTopics } from "./curriculum.js";
 import { judgeFile } from "./runner.js";
 import { slugify, Store, uniqueId } from "./store.js";
@@ -25,12 +25,25 @@ provider.command("list").description("list supported providers").action(() => {
 provider.command("setup").option("--provider <name>", "openai-compatible or anthropic").option("--base-url <url>", "provider API base URL").option("--model <model>", "model identifier").action(async (options: { provider?: string; baseUrl?: string; model?: string }) => {
   let name = options.provider as ProviderName | undefined; let baseUrl = options.baseUrl; let model = options.model;
   if (!name && process.stdin.isTTY) name = ((await prompt("Provider (openai-compatible/anthropic): ")) || undefined) as ProviderName | undefined;
-  if (!baseUrl && process.stdin.isTTY) baseUrl = (await prompt("Base URL: ")) || undefined;
-  if (!model && process.stdin.isTTY) model = (await prompt("Model: ")) || undefined;
-  if (!name || !baseUrl || !model) throw new Error("Provider setup requires --provider, --base-url, and --model when stdin is not a TTY.");
+  if (!name) throw new Error("Provider setup requires --provider when stdin is not a TTY.");
+  const defaults = defaultsFor(validateProvider(name));
+  if (!baseUrl && process.stdin.isTTY) baseUrl = (await prompt(`Base URL [${defaults.baseUrl}]: `)) || defaults.baseUrl;
+  if (!model && process.stdin.isTTY) model = (await prompt(`Model [${defaults.model}]: `)) || defaults.model;
+  baseUrl ??= defaults.baseUrl; model ??= defaults.model;
   await saveStoredConfig({ provider: validateProvider(name), baseUrl: validateBaseUrl(baseUrl), model: model.trim() });
   console.log(pc.green(`Saved provider configuration to ${configFilePath()}.`));
   console.log(pc.dim("API keys are never written. Set PRAC_AI_API_KEY before use."));
+});
+provider.command("login").description("configure provider metadata and verify an environment API key; no OAuth is used").option("--provider <name>", "openai-compatible or anthropic").option("--base-url <url>", "provider API base URL").option("--model <model>", "model identifier").option("--test", "perform one explicit authenticated request").action(async (options: { provider?: string; baseUrl?: string; model?: string; test?: boolean }) => {
+  const name = validateProvider(options.provider ?? "openai-compatible");
+  const defaults = defaultsFor(name);
+  await saveStoredConfig({ provider: name, baseUrl: validateBaseUrl(options.baseUrl ?? defaults.baseUrl), model: options.model ?? defaults.model });
+  await saveStoredConfig({ provider: name, baseUrl: validateBaseUrl(options.baseUrl ?? defaults.baseUrl), model: options.model ?? defaults.model });
+  console.log(`Saved metadata; no OAuth login is performed. Expected environment key: PRAC_AI_API_KEY or ${keyName}.`);
+  const keyName = name === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY";
+  const env = process.env.PRAC_AI_API_KEY ?? process.env[keyName];
+  if (!env) throw new Error(`Missing environment API key (${keyName} or PRAC_AI_API_KEY). No key was persisted.`);
+  if (options.test) { const config = await loadProviderConfig(); console.log(await askAi("Reply with exactly OK.", "Reply with exactly OK.", config)); }
 });
 provider.command("status").action(async () => {
   const stored = await readStoredConfig(); if (!stored) return console.log("Not configured. Run `prac provider setup`.");
@@ -38,7 +51,7 @@ provider.command("status").action(async () => {
   try { await loadProviderConfig(); console.log(`key       ${pc.green("available in environment")}`); } catch (error) { console.log(`key       ${pc.yellow("missing in environment")}`); console.log(pc.dim(error instanceof Error ? error.message : String(error))); }
 });
 provider.command("test").description("make one authenticated model request (explicit action)").action(async () => {
-  const state = await store.load(); if (state.contestMode) throw new Error("AI is blocked while contest mode is on.");
+  if (await store.exists()) { const state = await store.load(); if (state.contestMode) throw new Error("AI is blocked while contest mode is on."); }
   const config = await loadProviderConfig();
   try { console.log(await askAi("Reply with exactly OK.", "Reply with exactly OK.", config)); console.log(pc.green("Provider request succeeded.")); } catch (error) { throw new Error(redactSecrets(error instanceof Error ? error.message : String(error), [config.apiKey])); }
 });

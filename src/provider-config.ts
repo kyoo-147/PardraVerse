@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import path from "node:path";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 
 export type ProviderName = "openai-compatible" | "anthropic";
 export interface StoredProviderConfig { provider: ProviderName; baseUrl: string; model: string }
@@ -12,7 +12,7 @@ const DEFAULTS: Record<ProviderName, Omit<StoredProviderConfig, "provider">> = {
 };
 
 export function configFilePath(env: NodeJS.ProcessEnv = process.env): string {
-  const root = env.APPDATA || env.XDG_CONFIG_HOME || path.join(env.HOME || homedir(), ".config");
+  const root = env.XDG_CONFIG_HOME || env.APPDATA || path.join(env.HOME || homedir(), ".config");
   return path.join(root, "pardraverse", "provider.json");
 }
 
@@ -45,7 +45,9 @@ export async function saveStoredConfig(config: StoredProviderConfig, file = conf
   validateProvider(config.provider); validateBaseUrl(config.baseUrl);
   if (!config.model.trim()) throw new Error("Model must not be empty.");
   await mkdir(path.dirname(file), { recursive: true });
-  await writeFile(file, `${JSON.stringify({ provider: config.provider, baseUrl: config.baseUrl, model: config.model }, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  const temporary = `${file}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(temporary, `${JSON.stringify({ provider: config.provider, baseUrl: config.baseUrl, model: config.model }, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  await rename(temporary, file);
 }
 
 export async function loadProviderConfig(env: NodeJS.ProcessEnv = process.env, file = configFilePath(env)): Promise<ProviderConfig> {
