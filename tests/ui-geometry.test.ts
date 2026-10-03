@@ -131,7 +131,7 @@ describe("Boxed Components Rendering", () => {
     expect(joined).toContain("session");
   });
 
-  it("renders boxed navigator with sections and dividers", async () => {
+  it("renders boxed navigator with truthful problems and sessions only", async () => {
     const model = await createShellModel(process.cwd(), {
       state: emptyState(),
       aiAvailable: true,
@@ -139,9 +139,10 @@ describe("Boxed Components Rendering", () => {
     const sidebar = makeSidebar(model);
     const lines = sidebar.render(26);
     const joined = lines.join("\n");
-    expect(joined).toContain("WORKSPACES");
+    expect(joined).toContain("PROBLEMS");
     expect(joined).toContain("SESSIONS");
-    expect(joined).toContain("AGENTS");
+    expect(joined).not.toContain("WORKSPACES");
+    expect(joined).not.toContain("AGENTS");
     expect(joined).toContain("├"); // section divider
     for (const row of lines) {
       expect(visibleWidth(row)).toBe(26);
@@ -160,7 +161,7 @@ describe("Boxed Components Rendering", () => {
     expect(joined).toContain("+");
   });
 
-  it("renders boxed context with session context, files, run status, and notes", async () => {
+  it("renders boxed context with state-backed data and truthful empty states", async () => {
     const model = await createShellModel(process.cwd(), {
       state: emptyState(),
       aiAvailable: true,
@@ -170,21 +171,33 @@ describe("Boxed Components Rendering", () => {
     const joined = lines.join("\n");
     expect(joined).toContain("SESSION CONTEXT");
     expect(joined).toContain("WORKSPACE FILES");
-    expect(joined).toContain("RUN STATUS");
-    expect(joined).toContain("NOTES");
+    expect(joined).toContain("Empty · no active goal");
+    expect(joined).toContain("Empty · no active problem");
+    expect(joined).toContain("Empty · no attempts");
+    expect(joined).toContain("Empty · no notes or sources");
+    expect(joined).not.toContain("watching for file changes");
+    expect(joined).not.toContain("focus on core patterns");
     for (const row of lines) {
       expect(visibleWidth(row)).toBe(32);
     }
   });
 
-  it("renders compact footer with keybindings and real runtime stats", () => {
-    const footer = makeFooter();
+  it("renders compact footer with only real controls and no fake stats", async () => {
+    const model = await createShellModel(process.cwd(), {
+      state: emptyState(),
+      aiAvailable: true,
+    });
+    const footer = makeFooter(model);
     const lines = footer.render(120);
     const joined = lines.join("\n");
     expect(joined).toContain("PARDRAVERSE");
-    expect(joined).toContain("Ctrl+L clear");
     expect(joined).toContain("/help commands");
-    expect(joined).toContain("CPU");
-    expect(joined).toContain("RAM");
+    expect(joined).toContain("/new session");
+    expect(joined).toContain("/sessions");
+    expect(joined).not.toContain("Ctrl+L");
+    expect(joined).not.toContain("/agents");
+    expect(joined).not.toContain("TPS:");
+    expect(joined).not.toContain("CPU");
+    expect(joined).not.toContain("RAM");
   });
 });

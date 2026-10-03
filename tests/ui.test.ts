@@ -53,7 +53,7 @@ describe("PardraVerse TUI view model", () => {
     const { makeHeader, makeSidebar, makeContext, makeTabs } = await import("../src/ui/shell.js");
     const model = await createShellModel(await root(), { state: emptyState(), aiAvailable: false });
     const output = [...makeHeader(model).render(120), ...makeSidebar(model).render(28), ...makeContext(model).render(36), ...makeTabs(model).render(80)].join("\n");
-    expect(output).toContain("WORKSPACES");
+    expect(output).toContain("PROBLEMS");
     expect(output).toContain("SESSION CONTEXT");
     expect(output).toContain("0 messages");
     expect(output).not.toMatch(/\bsession 1\b|\bsession 2\b|\bPARDRA AGENT\b/i);

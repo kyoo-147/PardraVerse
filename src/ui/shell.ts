@@ -1,7 +1,6 @@
-import os from "node:os";
 import { Container, Text, visibleWidth, truncateToWidth, type Component } from "@earendil-works/pi-tui";
 import type { ShellModel } from "./view-model.js";
-import { c, theme } from "./theme.js";
+import { c } from "./theme.js";
 import { renderBoxFrame, renderDivider, padToWidth } from "./layout.js";
 
 function clip(value: string, width: number): string {
@@ -19,7 +18,7 @@ export class Pane extends Container {
 }
 
 /**
- * Boxed Header Component matching pardra_ui.png
+ * Boxed Header Component matching pardra_ui.png with dynamic metadata
  */
 export function makeHeader(model: ShellModel): Component {
   return {
@@ -28,6 +27,7 @@ export function makeHeader(model: ShellModel): Component {
       const workspaceName = clip(model.root.replaceAll("\\", "/").split("/").filter(Boolean).at(-1) ?? model.root, 18);
       const sessionName = clip(model.sessionLabel, 14);
       const modeText = c.accentStrong(c.bold(model.modeLabel));
+      const versionLabel = model.version || "dev";
 
       if (width < 80) {
         // Compact single-line header
@@ -67,7 +67,7 @@ export function makeHeader(model: ShellModel): Component {
         `${c.primary(workspaceName)}`,
         `${c.primary(sessionName)}`,
         `${modeText}`,
-        `${c.muted("v0.3.0")}`,
+        `${c.muted(versionLabel)}`,
       ].join(` ${c.border("│")} `);
 
       const tagVis = visibleWidth(tagline);
@@ -98,7 +98,7 @@ export function makeHeader(model: ShellModel): Component {
 }
 
 /**
- * Boxed Left Navigator Sidebar matching pardra_ui.png
+ * Boxed Left Navigator Sidebar showing real Problems and real Sessions only
  */
 export function makeSidebar(model: ShellModel): Component {
   return {
@@ -107,55 +107,61 @@ export function makeSidebar(model: ShellModel): Component {
       const innerWidth = Math.max(1, width - 2);
       const lines: string[] = [];
 
-      // Section 1: WORKSPACES +
-      const wsName = clip(model.workspaceItems[0] ?? "workspace", innerWidth - 6);
-      const wsPath = clip(model.root, innerWidth - 6);
-      // Active workspace row has purple tint background
-      lines.push(
-        padToWidth(` ${c.activeDot("●")} ${c.accentStrong(c.bold(wsName))}`, innerWidth, c.selectedBg),
-        padToWidth(`   ${c.muted(wsPath)}`, innerWidth, c.selectedBg)
-      );
+      // Section 1: PROBLEMS +
+      if (model.problemItems.length > 0) {
+        for (const problem of model.problemItems.slice(0, 5)) {
+          const isActive = problem.active ?? false;
+          const label = clip(problem.title, innerWidth - 6);
+          const meta = clip(`${problem.difficulty} · ${problem.language}${problem.topic ? ` · ${problem.topic}` : ""}`, innerWidth - 6);
+          if (isActive) {
+            lines.push(
+              padToWidth(` ${c.activeDot("●")} ${c.accentStrong(c.bold(label))}`, innerWidth, c.selectedBg),
+              padToWidth(`   ${c.muted(meta)}`, innerWidth, c.selectedBg)
+            );
+          } else {
+            lines.push(
+              padToWidth(` ${c.muted("·")} ${c.primary(label)}`, innerWidth, c.sidebarBg),
+              padToWidth(`   ${c.muted(meta)}`, innerWidth, c.sidebarBg)
+            );
+          }
+        }
+      } else {
+        lines.push(
+          padToWidth(`   ${c.muted("Empty · no problems")}`, innerWidth, c.sidebarBg),
+          padToWidth(`   ${c.muted("Run prac list or add a problem")}`, innerWidth, c.sidebarBg)
+        );
+      }
 
       // Section 2: SESSIONS +
       lines.push(renderDivider(width, "SESSIONS", "+", { borderColor: c.border, bgFn: c.sidebarBg }));
-      for (const session of model.sessionItems.slice(0, 5)) {
-        const isActive = session.active ?? false;
-        const timeBadge = session.detail.includes("·") ? session.detail.split("·")[0]?.trim() ?? "" : "";
-        const label = clip(session.label, innerWidth - 10);
-        const dot = isActive ? c.activeDot("●") : c.muted("·");
-
-        if (isActive) {
-          lines.push(
-            padToWidth(` ${dot} ${c.accentStrong(c.bold(label))} ${c.secondary(timeBadge)}`, innerWidth, c.selectedBg),
-            padToWidth(`   ${c.muted(clip(session.detail, innerWidth - 4))}`, innerWidth, c.selectedBg)
-          );
-        } else {
-          lines.push(
-            padToWidth(` ${dot} ${c.primary(label)} ${c.muted(timeBadge)}`, innerWidth, c.sidebarBg),
-            padToWidth(`   ${c.muted(clip(session.detail, innerWidth - 4))}`, innerWidth, c.sidebarBg)
-          );
+      const hasRealSessions = model.sessionItems.length > 0 && model.sessionItems[0]?.id !== "empty";
+      if (hasRealSessions) {
+        for (const session of model.sessionItems.slice(0, 5)) {
+          const isActive = session.active ?? false;
+          const label = clip(session.label, innerWidth - 6);
+          const detail = clip(session.detail, innerWidth - 6);
+          if (isActive) {
+            lines.push(
+              padToWidth(` ${c.activeDot("●")} ${c.accentStrong(c.bold(label))}`, innerWidth, c.selectedBg),
+              padToWidth(`   ${c.muted(detail)}`, innerWidth, c.selectedBg)
+            );
+          } else {
+            lines.push(
+              padToWidth(` ${c.muted("·")} ${c.primary(label)}`, innerWidth, c.sidebarBg),
+              padToWidth(`   ${c.muted(detail)}`, innerWidth, c.sidebarBg)
+            );
+          }
         }
-      }
-
-      // Section 3: AGENTS +
-      lines.push(renderDivider(width, "AGENTS", "+", { borderColor: c.border, bgFn: c.sidebarBg }));
-      const agentLabel = model.agentItems[0] ?? "pardra agent";
-      const isConfigured = !agentLabel.includes("Unavailable");
-      if (isConfigured) {
-        lines.push(
-          padToWidth(` ${c.activeDot("●")} ${c.accentStrong(c.bold("pardra agent"))}`, innerWidth, c.selectedBg),
-          padToWidth(`   ${c.muted("practice coach")}`, innerWidth, c.selectedBg)
-        );
       } else {
         lines.push(
-          padToWidth(` ${c.warningDot("●")} ${c.muted(clip(agentLabel, innerWidth - 4))}`, innerWidth, c.sidebarBg),
-          padToWidth(`   ${c.muted("local fallback")}`, innerWidth, c.sidebarBg)
+          padToWidth(`   ${c.muted("Empty · no saved sessions")}`, innerWidth, c.sidebarBg),
+          padToWidth(`   ${c.muted("start a conversation")}`, innerWidth, c.sidebarBg)
         );
       }
 
       return renderBoxFrame({
         width,
-        title: "WORKSPACES",
+        title: "PROBLEMS",
         rightBadge: "+",
         borderColor: c.border,
         bgFn: c.sidebarBg,
@@ -173,7 +179,7 @@ export function makeTabs(model: ShellModel): Component {
     invalidate() {},
     render(width: number): string[] {
       const sessions = model.sessionItems.slice(0, 4);
-      if (!sessions.length) {
+      if (!sessions.length || sessions[0]?.id === "empty") {
         return renderBoxFrame({
           width,
           borderColor: c.border,
@@ -182,10 +188,6 @@ export function makeTabs(model: ShellModel): Component {
         });
       }
 
-      // Build individual tab boxes
-      // Active tab: purple border + bold purple text + close ×
-      // Inactive tabs: subtle border + muted text + close ×
-      // New tab button: [+]
       interface TabDef {
         label: string;
         active: boolean;
@@ -195,7 +197,6 @@ export function makeTabs(model: ShellModel): Component {
         active: s.active ?? (idx === 0),
       }));
 
-      // Render tab boxes horizontally in 3 lines: top border, middle, bottom border
       const topRowParts: string[] = [];
       const midRowParts: string[] = [];
       const botRowParts: string[] = [];
@@ -232,7 +233,7 @@ export function makeTabs(model: ShellModel): Component {
 }
 
 /**
- * Boxed Right Context Sidebar matching pardra_ui.png
+ * Boxed Right Context Sidebar showing state-backed timer, problem, attempts, files, and notes
  */
 export function makeContext(model: ShellModel, unavailableReason?: string): Component {
   return {
@@ -247,21 +248,26 @@ export function makeContext(model: ShellModel, unavailableReason?: string): Comp
       }
       lines.push(
         padToWidth(` ${c.accent("Objective")}`, innerWidth, c.appBg),
-        padToWidth(` ${c.primary(clip(model.activeGoal ?? "Practice algorithms and clean implementation", innerWidth - 3))}`, innerWidth, c.appBg),
+        padToWidth(` ${model.activeGoal ? c.primary(clip(model.activeGoal, innerWidth - 3)) : c.muted("Empty · no active goal")}`, innerWidth, c.appBg),
         padToWidth(` ${c.accent("Current task")}`, innerWidth, c.appBg)
       );
 
       if (model.activeProblem) {
         lines.push(
           padToWidth(` ${c.primary(clip(model.activeProblem.title, innerWidth - 3))}`, innerWidth, c.appBg),
-          padToWidth(` ${c.accent("Difficulty")}`, innerWidth, c.appBg),
-          padToWidth(` ${c.activeDot(c.bold(model.activeProblem.difficulty.toUpperCase()))}`, innerWidth, c.appBg)
+          padToWidth(` ${c.accent("Difficulty")} ${c.activeDot(c.bold(model.activeProblem.difficulty.toUpperCase()))} · ${c.muted(model.activeProblem.language)}`, innerWidth, c.appBg)
         );
       } else {
         lines.push(padToWidth(` ${c.muted("Empty · no active problem")}`, innerWidth, c.appBg));
       }
 
       lines.push(
+        padToWidth(` ${c.accent("Started")}`, innerWidth, c.appBg),
+        padToWidth(
+          ` ${model.activeSessionStartedAt ? c.primary(formatStartedTime(model.activeSessionStartedAt)) : c.muted("Empty · no active session")}`,
+          innerWidth,
+          c.appBg
+        ),
         padToWidth(` ${c.accent("Session ID")}`, innerWidth, c.appBg),
         padToWidth(` ${c.muted(clip(model.sessionLabel, innerWidth - 3))}`, innerWidth, c.appBg)
       );
@@ -269,42 +275,39 @@ export function makeContext(model: ShellModel, unavailableReason?: string): Comp
       // Section 2: WORKSPACE FILES
       lines.push(renderDivider(width, "WORKSPACE FILES", undefined, { borderColor: c.border, bgFn: c.appBg }));
       lines.push(padToWidth(` ${c.muted(clip(model.root, innerWidth - 3))}`, innerWidth, c.appBg));
-      for (const file of model.files.slice(0, 5)) {
-        const isSelected = file.endsWith(".rs") || file.endsWith(".ts") || file.endsWith(".js");
-        if (isSelected && lines.length < 14) {
-          lines.push(padToWidth(`   ${c.accentStrong("◆ " + clip(file, innerWidth - 6))}`, innerWidth, c.selectedBg));
-        } else {
+      const hasRealFiles = model.files.length > 0 && !model.files[0]?.startsWith("Unavailable") && !model.files[0]?.startsWith("Empty");
+      if (hasRealFiles) {
+        for (const file of model.files.slice(0, 5)) {
           lines.push(padToWidth(`   ${c.muted("· " + clip(file, innerWidth - 6))}`, innerWidth, c.appBg));
         }
+      } else {
+        lines.push(padToWidth(`   ${c.muted(model.files[0] ?? "Empty · no workspace files")}`, innerWidth, c.appBg));
       }
 
-      // Section 3: RUN STATUS
+      // Section 3: ATTEMPTS & RUNS
       lines.push(renderDivider(width, "RUN STATUS", undefined, { borderColor: c.border, bgFn: c.appBg }));
       if (model.lastAttempt) {
         const verdictColor = model.lastAttempt.verdict === "accepted" ? c.successDot : c.warningDot;
         lines.push(
-          padToWidth(` ${verdictColor("●")} ${c.primary(model.lastAttempt.verdict)}`, innerWidth, c.appBg),
-          padToWidth(`   ${c.muted(`Last run: ${clip(model.lastAttempt.at, innerWidth - 14)}`)}`, innerWidth, c.appBg),
-          padToWidth(`   ${c.muted(`Tests: ${model.lastAttempt.passed}/${model.lastAttempt.total}`)}`, innerWidth, c.appBg)
+          padToWidth(` ${verdictColor("●")} ${c.bold(model.lastAttempt.verdict.toUpperCase())} (${model.acceptedCount}/${model.attemptsCount} accepted)`, innerWidth, c.appBg),
+          padToWidth(`   ${c.muted(`Tests: ${model.lastAttempt.passed}/${model.lastAttempt.total} passed`)}`, innerWidth, c.appBg),
+          padToWidth(`   ${c.muted(`Last: ${clip(model.lastAttempt.at, innerWidth - 10)}`)}`, innerWidth, c.appBg)
         );
       } else {
         lines.push(
-          padToWidth(` ${c.activeDot("●")} ${c.primary("watching for file changes...")}`, innerWidth, c.appBg),
-          padToWidth(`   ${c.muted("Tests: 0/0 (not run)")}`, innerWidth, c.appBg),
-          padToWidth(`   ${c.muted("Status: idle")}`, innerWidth, c.appBg)
+          padToWidth(`   ${c.muted("Empty · no attempts")}`, innerWidth, c.appBg),
+          padToWidth(`   ${c.muted("Run prac test to record")}`, innerWidth, c.appBg)
         );
       }
 
-      // Section 4: NOTES
+      // Section 4: NOTES & SOURCES
       lines.push(renderDivider(width, "NOTES", undefined, { borderColor: c.border, bgFn: c.appBg }));
-      if (model.sourceCount > 0) {
-        lines.push(padToWidth(` - ${c.primary(`${model.sourceCount} recorded source${model.sourceCount === 1 ? "" : "s"}`)}`, innerWidth, c.appBg));
+      if (model.sources.length > 0) {
+        for (const source of model.sources.slice(0, 3)) {
+          lines.push(padToWidth(`   ${c.primary(clip("· " + (source.title ?? source.url ?? source.id), innerWidth - 5))}`, innerWidth, c.appBg));
+        }
       } else {
-        lines.push(
-          padToWidth(` - ${c.muted("focus on core patterns")}`, innerWidth, c.appBg),
-          padToWidth(` - ${c.muted("test edge cases")}`, innerWidth, c.appBg),
-          padToWidth(` - ${c.muted("write clean, readable code")}`, innerWidth, c.appBg)
-        );
+        lines.push(padToWidth(`   ${c.muted("Empty · no notes or sources")}`, innerWidth, c.appBg));
       }
 
       return renderBoxFrame({
@@ -318,6 +321,19 @@ export function makeContext(model: ShellModel, unavailableReason?: string): Comp
   };
 }
 
+function formatStartedTime(isoString: string): string {
+  const parsed = new Date(isoString).getTime();
+  if (!Number.isFinite(parsed)) return isoString;
+  const elapsedMs = Date.now() - parsed;
+  if (elapsedMs < 60_000) return "just now";
+  const mins = Math.floor(elapsedMs / 60_000);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 /**
  * Status message bar
  */
@@ -326,23 +342,22 @@ export function makeStatus(status: string): Text {
 }
 
 /**
- * Compact Boxed Footer matching pardra_ui.png
+ * Compact Boxed Footer with real controls and truthful status
  */
-export function makeFooter(): Component {
+export function makeFooter(model?: ShellModel): Component {
   return {
     invalidate() {},
     render(width: number): string[] {
-      const leftPart = `${c.strong(c.bold("PARDRAVERSE"))}  ${c.muted("v0.3.0")}  ${c.border("·")}  ${c.secondary("local-first practice coach")}`;
-      const commandsPart = `${c.muted("Ctrl+L clear")}  ${c.border("·")}  ${c.muted("/help commands")}  ${c.border("·")}  ${c.muted("/sessions")}  ${c.border("·")}  ${c.muted("/agents")}  ${c.border("·")}  ${c.muted("/quit exit")}`;
+      const versionText = model?.version ? `  ${c.muted(model.version)}  ${c.border("·")}` : "";
+      const leftPart = `${c.strong(c.bold("PARDRAVERSE"))}${versionText}  ${c.secondary("local-first practice coach")}`;
+      const commandsPart = `${c.muted("/help commands")}  ${c.border("·")}  ${c.muted("/new session")}  ${c.border("·")}  ${c.muted("/sessions")}  ${c.border("·")}  ${c.muted("/open <id>")}  ${c.border("·")}  ${c.muted("/quit exit")}  ${c.border("·")}  ${c.muted("Ctrl+C stop")}`;
 
-      // Truthful system metrics
-      const memMb = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
-      const load = os.loadavg()[0] ?? 0;
-      const cpuPct = Math.min(99, Math.round(load * 10));
-      const statsPart = `${c.muted("TPS:")} ${c.primary("-- tok/s")}   ${c.border("│")}   ${c.muted("CPU")} ${c.primary(`${cpuPct}%`)}   ${c.border("│")}   ${c.muted("RAM")} ${c.primary(`${memMb}M`)}`;
+      const modeText = model?.modeLabel ? `${c.muted("mode:")} ${c.accentStrong(model.modeLabel)}` : "";
+      const modelText = model?.modelLabel ? `${c.muted("model:")} ${c.primary(clip(model.modelLabel, 16))}` : "";
+      const statusPart = [modeText, modelText].filter(Boolean).join(`   ${c.border("│")}   `);
 
       if (width < 96) {
-        const compactLine = ` ${leftPart}   ${statsPart}`;
+        const compactLine = statusPart ? ` ${leftPart}   ${statusPart}` : ` ${leftPart}`;
         return renderBoxFrame({
           width,
           borderColor: c.border,
@@ -353,17 +368,17 @@ export function makeFooter(): Component {
 
       const available = width - 4;
 
-      // Row 1: Left Brand & version, Right live stats
+      // Row 1: Left Brand & version, Right runtime mode & model
       const leftVis = visibleWidth(leftPart);
-      const rightVis = visibleWidth(statsPart);
+      const rightVis = visibleWidth(statusPart);
       let row1 = "";
       if (leftVis + rightVis + 2 <= available) {
-        row1 = ` ${leftPart}` + " ".repeat(available - leftVis - rightVis) + statsPart;
+        row1 = ` ${leftPart}` + " ".repeat(available - leftVis - rightVis) + statusPart;
       } else {
-        row1 = clip(` ${leftPart}   ${statsPart}`, available);
+        row1 = clip(` ${leftPart}   ${statusPart}`, available);
       }
 
-      // Row 2: Command shortcuts
+      // Row 2: Real command shortcuts
       const row2 = ` ${commandsPart}`;
 
       return renderBoxFrame({

@@ -3,15 +3,19 @@ import { makeHeader, makeSidebar, makeTabs, makeContext, makeFooter } from "../s
 import { computeShellLayout, padToWidth, renderBoxFrame } from "../src/ui/layout.js";
 import { createShellModel } from "../src/ui/view-model.js";
 import { emptyState } from "../src/store.js";
-import { c, theme } from "../src/ui/theme.js";
+import { c } from "../src/ui/theme.js";
 import { visibleWidth, stripTerminalSequences } from "@earendil-works/pi-tui";
 
-describe("PardraVerse TUI Full 120x40 Capture & Geometry", () => {
-  it("generates a pixel-perfect 120x40 terminal capture matching pardra_ui.png", async () => {
+describe("PardraVerse TUI Shell Geometry and Truthful Content", () => {
+  it("validates 120x40 shell layout geometry and box framing with state-backed data", async () => {
     const layout = computeShellLayout(120, 40);
     expect(layout.width).toBe(120);
     expect(layout.height).toBe(40);
     expect(layout.isWide).toBe(true);
+    expect(layout.isCompact).toBe(false);
+    expect(layout.sidebarWidth).toBe(26);
+    expect(layout.contextWidth).toBe(32);
+    expect(layout.centerWidth).toBe(62);
 
     const state = emptyState();
     state.topics.push({ id: "arrays", name: "Arrays", description: "", createdAt: "2026-01-01" });
@@ -31,6 +35,22 @@ describe("PardraVerse TUI Full 120x40 Capture & Geometry", () => {
       goal: "Practice prefix sums and array scan",
       startedAt: "2026-01-01T00:00:00.000Z",
     };
+    state.attempts.push({
+      id: "attempt-1",
+      problemId: "prefix",
+      at: "2026-01-01T00:14:00.000Z",
+      passed: 1,
+      total: 1,
+      durationMs: 5,
+      verdict: "accepted",
+    });
+    state.sources.push({
+      id: "src-1",
+      title: "Prefix sum array scan notes",
+      url: "https://example.com/prefix",
+      goal: "practice",
+      addedAt: "2026-01-01T00:00:00.000Z",
+    });
 
     const model = await createShellModel(process.cwd(), {
       state,
@@ -38,44 +58,41 @@ describe("PardraVerse TUI Full 120x40 Capture & Geometry", () => {
       modelLabel: "local-practice-coach",
     });
 
-    // 1. Header (4 lines)
+    // 1. Header (4 lines at 120 width)
     const headerLines = makeHeader(model).render(120);
     expect(headerLines).toHaveLength(4);
     for (const line of headerLines) {
       expect(visibleWidth(line)).toBe(120);
     }
 
-    // 2. Footer (4 lines)
-    const footerLines = makeFooter().render(120);
+    // 2. Footer (4 lines at 120 width)
+    const footerLines = makeFooter(model).render(120);
     expect(footerLines).toHaveLength(4);
     for (const line of footerLines) {
       expect(visibleWidth(line)).toBe(120);
     }
 
-    // Middle height is 40 - 4 - 4 = 32 lines
+    // 3. Middle section (40 - 4 - 4 = 32 lines)
     const middleHeight = 32;
 
-    // Left Navigator Sidebar (width 26, height 32)
+    // Left Navigator: width 26
     const sidebarLines = makeSidebar(model).render(26);
-    // Pad sidebar to 32 lines if needed
     while (sidebarLines.length < middleHeight) {
       sidebarLines.splice(sidebarLines.length - 1, 0, padToWidth(c.border("│") + " ".repeat(24) + c.border("│"), 26, c.sidebarBg));
     }
     expect(sidebarLines).toHaveLength(middleHeight);
 
-    // Right Context Sidebar (width 32, height 32)
+    // Right Context: width 32
     const contextLines = makeContext(model).render(32);
     while (contextLines.length < middleHeight) {
       contextLines.splice(contextLines.length - 1, 0, padToWidth(c.border("│") + " ".repeat(30) + c.border("│"), 32, c.appBg));
     }
     expect(contextLines).toHaveLength(middleHeight);
 
-    // Center Column (width 62, height 32)
-    // - Tabs: 3 lines
+    // Center Column: width 62 (Tabs: 3, Transcript: 26, Composer: 3)
     const tabLines = makeTabs(model).render(62);
     expect(tabLines).toHaveLength(3);
 
-    // - Composer: 3 lines at bottom of center
     const composerBox = renderBoxFrame({
       width: 62,
       borderColor: (s) => c.borderFocus(s),
@@ -84,38 +101,16 @@ describe("PardraVerse TUI Full 120x40 Capture & Geometry", () => {
     });
     expect(composerBox).toHaveLength(3);
 
-    // - Transcript: remaining 32 - 3 (tabs) - 3 (composer) = 26 lines
     const transcriptHeight = middleHeight - 3 - 3;
-    const sampleTranscript: string[] = [
-      padToWidth(`  ${c.muted("14:10")}    ${c.accentStrong(">")}   ${c.primary("hi, who are you?")}`, 62, c.editorBg),
-      padToWidth("", 62, c.editorBg),
-      padToWidth(`  ${c.muted("14:10")}    ${c.activeDot("●")}   ${c.primary("Hi! I'm Pardra Agent, your local practice coach for algorithms.")}`, 62, c.editorBg),
-      padToWidth(`                 ${c.primary("I help you think first, code by hand, and run local tests.")}`, 62, c.editorBg),
-      padToWidth("", 62, c.editorBg),
-      padToWidth(`  ${c.muted("14:12")}    ${c.accentStrong(">")}   ${c.primary("ok, help me practice prefix sums and array scan today")}`, 62, c.editorBg),
-      padToWidth("", 62, c.editorBg),
-      padToWidth(`  ${c.muted("14:12")}    ${c.activeDot("●")}   ${c.primary("Got it. I'll set up a focused practice session on prefix sums.")}`, 62, c.editorBg),
-      padToWidth(`                 ${c.primary("Plan for this session:")}`, 62, c.editorBg),
-      padToWidth(`                 ${c.muted("1. Quick intuition refresher (when to use prefix sums)")}`, 62, c.editorBg),
-      padToWidth(`                 ${c.muted("2. Warm-up: array scan (running sum, subarray sum)")}`, 62, c.editorBg),
-      padToWidth(`                 ${c.muted("3. Main task: implement and test a few problems")}`, 62, c.editorBg),
-      padToWidth("", 62, c.editorBg),
-      padToWidth(`                 ${c.accent("Let's start with a warm-up. Try this first:")}`, 62, c.editorBg),
-      padToWidth(`                 ${c.borderFocus("╭─ Problem: Warm-up: prefix sums ──────────────────╮")}`, 62, c.editorBg),
-      padToWidth(`                 ${c.borderFocus("│")} ${c.terminal("Given an array of integers, return a new array...")} ${c.borderFocus("│")}`, 62, c.editorBg),
-      padToWidth(`                 ${c.borderFocus("│")} ${c.muted("Example: [3, 1, 4, 1, 5] -> [0, 3, 4, 8, 9]")}   ${c.borderFocus("│")}`, 62, c.editorBg),
-      padToWidth(`                 ${c.borderFocus("│")} ${c.accentStrong("fn prefix_sums(nums: &[i32]) -> Vec<i32> { ... }")} ${c.borderFocus("│")}`, 62, c.editorBg),
-      padToWidth(`                 ${c.borderFocus("╰──────────────────────────────────────────────────╯")}`, 62, c.editorBg),
-    ];
-
-    while (sampleTranscript.length < transcriptHeight) {
-      sampleTranscript.push(padToWidth("", 62, c.editorBg));
+    const transcriptLines: string[] = [];
+    while (transcriptLines.length < transcriptHeight) {
+      transcriptLines.push(padToWidth("", 62, c.editorBg));
     }
 
-    const centerLines = [...tabLines, ...sampleTranscript, ...composerBox];
+    const centerLines = [...tabLines, ...transcriptLines, ...composerBox];
     expect(centerLines).toHaveLength(middleHeight);
 
-    // Combine middle rows (sidebar + center + context = 26 + 62 + 32 = 120)
+    // Combine 3 columns horizontally: 26 + 62 + 32 = 120
     const middleLines: string[] = [];
     for (let i = 0; i < middleHeight; i++) {
       const row = (sidebarLines[i] ?? "") + (centerLines[i] ?? "") + (contextLines[i] ?? "");
@@ -130,17 +125,100 @@ describe("PardraVerse TUI Full 120x40 Capture & Geometry", () => {
       expect(visibleWidth(row)).toBe(120);
     }
 
-    // Plain text representation
     const plainFrame = fullFrame.map((line) => stripTerminalSequences(line)).join("\n");
+
+    // Verify truthful header metadata
     expect(plainFrame).toContain("PARDRAVERSE");
-    expect(plainFrame).toContain("WORKSPACES");
+    expect(plainFrame).toContain("local-first practice coach");
+    expect(plainFrame).toContain("PRACTICE COACH");
+
+    // Verify left column: real problems and sessions only
+    expect(plainFrame).toContain("PROBLEMS");
+    expect(plainFrame).toContain("Warm-up: prefix sums");
     expect(plainFrame).toContain("SESSIONS");
-    expect(plainFrame).toContain("AGENTS");
+    expect(plainFrame).not.toContain("WORKSPACES");
+    expect(plainFrame).not.toContain("AGENTS");
+
+    // Verify right column: state-backed context, timer, attempts, sources
     expect(plainFrame).toContain("SESSION CONTEXT");
+    expect(plainFrame).toContain("Practice prefix sums");
+    expect(plainFrame).toContain("Warm-up: prefix sums");
+    expect(plainFrame).toContain("MEDIUM");
     expect(plainFrame).toContain("WORKSPACE FILES");
     expect(plainFrame).toContain("RUN STATUS");
+    expect(plainFrame).toContain("ACCEPTED");
+    expect(plainFrame).toContain("1/1 accepted");
     expect(plainFrame).toContain("NOTES");
-    expect(plainFrame).toContain("prefix_sums");
-    expect(plainFrame).toContain("Type a message or command...");
+    expect(plainFrame).toContain("Prefix sum array");
+
+    // Verify no fabricated elements
+    expect(plainFrame).not.toContain("watching for file changes");
+    expect(plainFrame).not.toContain("focus on core patterns");
+    expect(plainFrame).not.toContain("/agents");
+    expect(plainFrame).not.toContain("Ctrl+L");
+    expect(plainFrame).not.toContain("TPS:");
+    expect(plainFrame).not.toContain("CPU");
+    expect(plainFrame).not.toContain("RAM");
+  });
+
+  it("validates truthful empty states when state has no problems, attempts, or notes", async () => {
+    const model = await createShellModel(process.cwd(), {
+      state: emptyState(),
+      aiAvailable: false,
+    });
+
+    const sidebar = makeSidebar(model).render(26).join("\n");
+    expect(sidebar).toContain("PROBLEMS");
+    expect(sidebar).toContain("Empty · no problems");
+    expect(sidebar).toContain("SESSIONS");
+    expect(sidebar).not.toContain("WORKSPACES");
+    expect(sidebar).not.toContain("AGENTS");
+
+    const context = makeContext(model).render(32).join("\n");
+    expect(context).toContain("SESSION CONTEXT");
+    expect(context).toContain("Empty · no active goal");
+    expect(context).toContain("Empty · no active problem");
+    expect(context).toContain("Empty · no active session");
+    expect(context).toContain("Empty · no attempts");
+    expect(context).toContain("Empty · no notes or sources");
+    expect(context).not.toContain("watching for file changes");
+    expect(context).not.toContain("focus on core patterns");
+
+    const tabs = makeTabs(model).render(60).join("\n");
+    expect(tabs).toContain("×");
+    expect(tabs).toContain("+");
+
+    const footer = makeFooter(model).render(100).join("\n");
+    expect(footer).toContain("PARDRAVERSE");
+    expect(footer).toContain("/help commands");
+    expect(footer).toContain("/new session");
+    expect(footer).toContain("/sessions");
+    expect(footer).not.toContain("/agents");
+    expect(footer).not.toContain("Ctrl+L");
+    expect(footer).not.toContain("TPS:");
+  });
+
+  it("validates responsive compact mode geometry below breakpoint (< 96 columns)", async () => {
+    const layout = computeShellLayout(80, 24);
+    expect(layout.isCompact).toBe(true);
+    expect(layout.isWide).toBe(false);
+    expect(layout.sidebarWidth).toBe(0);
+    expect(layout.contextWidth).toBe(0);
+    expect(layout.centerWidth).toBe(80);
+
+    const model = await createShellModel(process.cwd(), {
+      state: emptyState(),
+      aiAvailable: true,
+    });
+
+    const header = makeHeader(model).render(80);
+    for (const line of header) {
+      expect(visibleWidth(line)).toBe(80);
+    }
+
+    const footer = makeFooter(model).render(80);
+    for (const line of footer) {
+      expect(visibleWidth(line)).toBe(80);
+    }
   });
 });

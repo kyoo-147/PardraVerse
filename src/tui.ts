@@ -125,7 +125,7 @@ export async function launchChat(root = process.cwd()): Promise<void> {
       new VStack([
         makeHeader(model),
         { component: main, basis: 0, grow: 1, minSize: 8 },
-        makeFooter(),
+        makeFooter(model),
       ])
     );
   };
