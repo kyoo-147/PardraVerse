@@ -144,6 +144,8 @@ prac serve
 
 ## Documentation
 
+- [Current product phase contract](docs/PRODUCT-PHASE.md)
+
 - [Architecture and research boundaries](docs/RESEARCH.md)
 - [Incremental roadmap](docs/ROADMAP.md)
 - [Security model](SECURITY.md)
