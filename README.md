@@ -1,6 +1,20 @@
+<div align="center">
+
 # coding_prac
 
-A local, CLI-first practice lab for coding, algorithms, and deliberate learning. It does **not** lock you into a course: topics, problems, links, solutions, and practice tracks are your own files and local state.
+**think first. code by hand.**
+
+A local-first practice console for algorithms, implementation, and contest discipline.
+
+[Quick start](#quick-start) · [Workflow](#core-workflow) · [Research](docs/RESEARCH.md) · [Roadmap](docs/ROADMAP.md) · [Contributing](CONTRIBUTING.md)
+
+[![License](https://img.shields.io/badge/license-Apache--2.0-baf84b?style=flat-square&labelColor=111511)](LICENSE)
+![Node](https://img.shields.io/badge/node-%3E%3D20.11-baf84b?style=flat-square&labelColor=111511)
+![Tests](https://img.shields.io/badge/tests-15%20passing-baf84b?style=flat-square&labelColor=111511)
+
+</div>
+
+![coding_prac running dashboard](docs/assets/coding-prac-dashboard.png)
 
 The first release focuses on the shortest useful loop:
 
@@ -8,7 +22,14 @@ The first release focuses on the shortest useful loop:
 pick a problem -> code by hand -> run local tests -> inspect failure -> review -> repeat
 ```
 
-AI can coach during preparation, but `contest mode` hard-blocks AI commands for rule-restricted practice and official contests.
+There are no locked courses. Topics, problems, links, solutions, and practice tracks remain yours. AI can coach during preparation, while `contest mode` hard-blocks AI commands for rule-restricted practice and official contests.
+
+<details>
+<summary>Responsive local dashboard</summary>
+
+<p align="center"><img src="docs/assets/coding-prac-mobile.png" width="390" alt="coding_prac mobile dashboard running locally"></p>
+
+</details>
 
 ## Requirements
 
@@ -17,7 +38,7 @@ AI can coach during preparation, but `contest mode` hard-blocks AI commands for 
 - Optional: Python 3 for Python problems
 - Optional: an OpenAI-compatible or Anthropic API key for coaching/research
 
-## Install locally
+## Quick start
 
 ```bash
 npm install
@@ -128,6 +149,8 @@ npm run check
 
 Architecture and product decisions are documented in [`docs/RESEARCH.md`](docs/RESEARCH.md) and the next steps in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
+Contributions are welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request.
+
 ## License
 
-MIT
+Apache-2.0 — see [`LICENSE`](LICENSE).

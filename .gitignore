@@ -9,3 +9,4 @@ coverage/
 *.exe
 *.out
 .DS_Store
+.pi/
