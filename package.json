@@ -1,0 +1,37 @@
+{
+  "name": "coding-prac",
+  "version": "0.1.0",
+  "description": "CLI-first local practice lab for algorithms, coding drills, and AI-assisted study.",
+  "type": "module",
+  "bin": {
+    "prac": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup src/cli.ts --format esm --clean --sourcemap",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "engines": {
+    "node": ">=20.11"
+  },
+  "dependencies": {
+    "commander": "^14.0.1",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vitest": "^5.0.3"
+  },
+  "license": "MIT"
+}
