@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/pardraverse-logo.png" alt="PardraVerse" width="760">
+<img src="docs/assets/pardraverse-neon-hero.png" alt="PardraVerse neon cosmic banner" width="900">
 
 **A local coding-learning agent for the terminal.**
 
