@@ -1,10 +1,10 @@
 <div align="center">
 
-# coding_prac
+<img src="docs/assets/pardraverse-logo.png" alt="PardraVerse" width="760">
 
 **A local coding-learning agent for the terminal.**
 
-Talk through what you want to practice. The agent manages problems, solution files, local tests, judging, research, and session history behind one conversational workspace.
+PardraVerse helps you think first and code by hand. Talk through what you want to practice, while the local agent manages problems, solution files, tests, judging, research, and session history behind one conversational workspace.
 
 [Quick start](#quick-start) · [How it works](#how-it-works) · [Architecture](docs/RESEARCH.md) · [Contributing](CONTRIBUTING.md)
 
@@ -13,7 +13,7 @@ Talk through what you want to practice. The agent manages problems, solution fil
 
 </div>
 
-![coding_prac local workspace](docs/assets/coding-prac-dashboard.png)
+![PardraVerse — Think First, Code by Hand](docs/assets/pardraverse-product.png)
 
 ## Quick start
 
@@ -104,6 +104,10 @@ prac contest off
 When the lock is on, the conversational UI falls back to deterministic local-only actions and no AI request is created. The lock cannot control other editors, terminals, or applications; follow the applicable rules yourself.
 
 ## Optional web view
+
+The optional web workspace stays compact and read-only:
+
+![PardraVerse local workspace](docs/assets/coding-prac-dashboard.png)
 
 ```bash
 prac serve
