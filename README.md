@@ -8,12 +8,12 @@ PardraVerse helps you think first and code by hand. Talk through what you want t
 
 [Website](https://pardraverse.navinresearch.com) · [Quick start](#quick-start) · [How it works](#how-it-works) · [Architecture](docs/RESEARCH.md) · [Contributing](CONTRIBUTING.md)
 
-[![Website](https://img.shields.io/badge/Website-pardraverse.navinresearch.com-ff643e?style=flat-square&labelColor=17191f)](https://pardraverse.navinresearch.com)
-[![Version](https://img.shields.io/github/package-json/v/kyoo-147/PardraVerse?style=flat-square&label=Version&labelColor=17191f&color=ffb52e)](package.json)
-[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A522.19-ff643e?style=flat-square&labelColor=17191f)](package.json)
-[![License](https://img.shields.io/github/license/kyoo-147/PardraVerse?style=flat-square&label=License&labelColor=17191f&color=ffb52e)](LICENSE)
-[![Security](https://img.shields.io/badge/Security-Policy-ff643e?style=flat-square&labelColor=17191f)](SECURITY.md)
-[![Contributing](https://img.shields.io/badge/Contributing-Guide-ffb52e?style=flat-square&labelColor=17191f)](CONTRIBUTING.md)
+[![Website](https://img.shields.io/badge/Website-pardraverse.navinresearch.com-b7f36b?style=flat-square&labelColor=121412)](https://pardraverse.navinresearch.com)
+[![Version](https://img.shields.io/github/package-json/v/kyoo-147/PardraVerse?style=flat-square&label=Version&labelColor=121412&color=b7f36b)](package.json)
+[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A522.19-b7f36b?style=flat-square&labelColor=121412)](package.json)
+[![License](https://img.shields.io/github/license/kyoo-147/PardraVerse?style=flat-square&label=License&labelColor=121412&color=b7f36b)](LICENSE)
+[![Security](https://img.shields.io/badge/Security-Policy-b7f36b?style=flat-square&labelColor=121412)](SECURITY.md)
+[![Contributing](https://img.shields.io/badge/Contributing-Guide-b7f36b?style=flat-square&labelColor=121412)](CONTRIBUTING.md)
 
 </div>
 
