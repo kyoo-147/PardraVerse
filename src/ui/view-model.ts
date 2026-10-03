@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Attempt, PracState } from "../types.js";
+import { SessionStore, type SessionSummary } from "../session-store.js";
 
 export type ShellMode = "practice" | "local-only" | "contest";
 export interface SessionRecord { id: string; label: string; detail: string; active?: boolean; }
@@ -21,23 +22,8 @@ export interface ShellModel {
   sourceCount: number;
 }
 
-/** Reads persisted session history without allowing an unbounded file into the TUI. */
-export class SessionStore {
-  constructor(private readonly root: string) {}
-  async list(): Promise<SessionRecord[]> {
-    const file = path.join(this.root, ".prac", "sessions.md");
-    const raw = await readFile(file, "utf8").catch(() => "");
-    return raw.slice(0, 64 * 1024).split(/\r?\n/).flatMap((line) => {
-      const match = line.match(/^[-*]\s+(\S+)\s+\|\s*([^|]+)\|\s*([^|]+)\|\s*(.+)$/);
-      if (!match || !match[1] || !match[2] || !match[3] || !match[4]) return [];
-      const [, id, duration, problem, goal] = match;
-      return [{ id, label: goal.trim(), detail: `${problem.trim()} · ${duration.trim()}` }];
-    }).slice(-20).reverse();
-  }
-  active(state: PracState): SessionRecord | undefined {
-    if (!state.activeSession) return undefined;
-    return { id: "active", label: state.activeSession.goal, detail: state.activeSession.problemId ?? "open practice", active: true };
-  }
+function sessionLabel(session: Pick<SessionSummary, "id" | "title" | "goal" | "problem">): string {
+  return session.title ?? session.goal ?? session.problem ?? session.id.slice(0, 8);
 }
 
 async function boundedFiles(root: string, directory: string): Promise<string[]> {
@@ -69,22 +55,27 @@ export async function createShellModel(root: string, options: {
   const mode: ShellMode = state.contestMode ? "contest" : options.aiAvailable ? "practice" : "local-only";
   const sessionStore = options.sessions ?? new SessionStore(absoluteRoot);
   const history = await sessionStore.list();
-  const active = sessionStore.active(state);
+  const activeConversation = await sessionStore.active();
   const problem = state.activeSession?.problemId ? state.problems.find((item) => item.id === state.activeSession?.problemId) : undefined;
   const solutions = await boundedFiles(absoluteRoot, "solutions");
   const research = (await Promise.all(["research", "docs", "sources"].map((directory) => boundedFiles(absoluteRoot, directory)))).flat();
   const files = (await existingEntries(absoluteRoot)).filter((name) => name !== "solutions").slice(0, 12);
   if (solutions.length) files.push(...solutions.slice(0, 12));
   if (research.length) files.push(...research.slice(0, 12));
-  const sessions = active ? [active, ...history] : history;
+  const sessions: SessionRecord[] = history.map((session) => ({
+    id: session.id,
+    label: sessionLabel(session),
+    detail: `${session.messageCount} message${session.messageCount === 1 ? "" : "s"} · ${new Date(session.updatedAt).toLocaleString()}`,
+    active: session.id === activeConversation.id,
+  }));
   const attempt = state.attempts.length ? state.attempts[state.attempts.length - 1] : undefined;
   return {
     brand: "PARDRA·VERSE", root: absoluteRoot, mode,
     modeLabel: state.contestMode ? "CONTEST LOCK" : options.aiAvailable ? "PRACTICE COACH" : "LOCAL ONLY",
     modelLabel: options.modelLabel ?? (options.aiAvailable ? "configured" : "AI unavailable"),
-    sessionLabel: active?.label ?? history[0]?.label ?? "Empty · no active session",
+    sessionLabel: sessionLabel(activeConversation),
     workspaceItems: [path.basename(absoluteRoot) || absoluteRoot, `state · ${state.problems.length} problem${state.problems.length === 1 ? "" : "s"}`, ...files],
-    sessionItems: sessions.length ? sessions.slice(0, 12) : [{ id: "empty", label: "Empty · no sessions", detail: "start a practice session" }],
+    sessionItems: sessions.length ? sessions.slice(0, 12) : [{ id: "empty", label: "Empty · no sessions", detail: "start a conversation" }],
     agentItems: options.aiAvailable ? ["configured practice coach"] : ["Unavailable · AI provider"],
     activeGoal: state.activeSession?.goal,
     activeProblem: problem && { title: problem.title, difficulty: problem.difficulty, language: problem.language },

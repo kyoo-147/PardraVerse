@@ -4,7 +4,7 @@
 
 ## Product boundary
 
-`coding_prac` is a coding-learning agent, not a general autonomous developer and not a course marketplace. Its durable learning loop is:
+PardraVerse is a coding-learning agent, not a general autonomous developer and not a course marketplace. Its durable learning loop is:
 
 ```text
 intent -> problem -> learner attempt -> local evidence -> feedback -> reflection
@@ -21,7 +21,7 @@ Topics, problems, solutions, sources, and study notes remain ordinary local data
 | [Grok Build](https://github.com/xai-org/grok-build) | Keep lifecycle, chat state, PTY/runtime concerns, and workspace operations separate | No worktree orchestration or background worker fleet | Apache-2.0 |
 | [Herdr](https://github.com/herdrdev/herdr) | Durable session identity, append-only lifecycle events, explicit attach/restore thinking | No daemon, remote terminal ownership, or multi-agent manager | Apache-2.0 |
 
-These repositories are architectural references. `coding_prac` does not copy their names, visual identity, or product surfaces.
+These repositories are architectural references. PardraVerse does not copy their names, visual identity, or product surfaces.
 
 ## Chosen structure
 
@@ -66,13 +66,15 @@ It does not receive an unrestricted shell or arbitrary file read/write tools. Co
 
 ### Durable runtime without a daemon
 
-The active chat is stored atomically under `.prac/chat/current.json`; starting a new chat archives the previous transcript. `.prac/events.jsonl` records session and tool lifecycle events without storing provider credentials. This gives crash recovery and an inspectable audit trail while the product remains one foreground process.
+Named conversations have stable IDs, an atomic active-session index at `.prac/chat/sessions.json`, and one bounded JSON file per session under `.prac/chat/sessions/`. They can be listed, created, opened, renamed, archived, and deleted from the TUI or explicit CLI. Legacy `current.json` and archive data migrate forward without destructive rewriting; corrupt state is preserved for recovery. `.prac/events.jsonl` records session and tool lifecycle events without storing provider credentials.
+
+This adapts Herdr's durable identity and restore ideas to a smaller foreground application. It does not add Herdr's daemon, PTY ownership, remote control, or worker orchestration. The left navigator, central transcript, and right practice context are projections of local state, not a hidden process manager.
 
 A daemon, detach/reattach protocol, remote control plane, or concurrent worker system is not justified by the current single-learner workflow.
 
 ## Provider and offline behavior
 
-AI configuration remains environment-based. Provider secrets are not written to workspace state. When no key is configured, or when contest mode is active, the same TUI starts in deterministic local-only mode. It can show status, browse problems, and run saved tests without making an AI request.
+Non-secret provider, base URL, and model metadata can be saved with `prac provider setup`. API keys remain environment-only and `prac provider login` is a key-availability check rather than OAuth. `prac provider test` is the only default command that performs a connectivity request. When no key is configured, or when contest mode is active, the same TUI starts in deterministic local-only mode. It can show status, browse problems, manage conversations, and run saved tests without making an AI request.
 
 ## Web boundary
 

@@ -1,12 +1,22 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { emptyState } from "../src/store.js";
+import { SessionStore } from "../src/session-store.js";
 import { contentText, createShellModel, formatTurnTime } from "../src/ui/view-model.js";
+
+const roots: string[] = [];
+afterEach(async () => Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))));
+async function root(): Promise<string> { const value = await mkdtemp(path.join(os.tmpdir(), "pardra-ui-")); roots.push(value); return value; }
 
 describe("PardraVerse TUI view model", () => {
   it("shows explicit empty states without invented rows", async () => {
-    const model = await createShellModel("./workspace", { state: emptyState(), aiAvailable: false });
+    const directory = await root();
+    const model = await createShellModel(directory, { state: emptyState(), aiAvailable: false });
     expect(model.mode).toBe("local-only");
-    expect(model.sessionItems).toEqual([{ id: "empty", label: "Empty · no sessions", detail: "start a practice session" }]);
+    expect(model.sessionItems).toHaveLength(1);
+    expect(model.sessionItems[0]?.label).toMatch(/^[0-9a-f]{8}$/);
     expect(model.agentItems).toEqual(["Unavailable · AI provider"]);
     expect(model.lastAttempt).toBeUndefined();
   });
@@ -17,8 +27,11 @@ describe("PardraVerse TUI view model", () => {
     state.problems.push({ id: "prefix", title: "Prefix sums", topic: "arrays", difficulty: "medium", language: "javascript", statement: "", constraints: [], tests: [], createdAt: "2026-01-01" });
     state.activeSession = { problemId: "prefix", goal: "practice scans", startedAt: "2026-01-01T00:00:00.000Z" };
     state.attempts.push({ id: "attempt-1", problemId: "prefix", at: "2026-01-01T00:01:00.000Z", passed: 1, total: 1, durationMs: 4, verdict: "accepted" });
-    const model = await createShellModel(".", { state, aiAvailable: true, modelLabel: "test-model" });
-    expect(model.sessionLabel).toBe("practice scans");
+    const directory = await root();
+    const sessions = new SessionStore(directory);
+    await sessions.create({ title: "Prefix practice", goal: "practice scans" });
+    const model = await createShellModel(directory, { state, aiAvailable: true, modelLabel: "test-model", sessions });
+    expect(model.sessionLabel).toBe("Prefix practice");
     expect(model.activeProblem?.title).toBe("Prefix sums");
     expect(model.lastAttempt?.verdict).toBe("accepted");
     expect(model.agentItems).toEqual(["configured practice coach"]);
@@ -38,11 +51,11 @@ describe("PardraVerse TUI view model", () => {
 
   it("renders shell regions without invented speaker labels", async () => {
     const { makeHeader, makeSidebar, makeContext, makeTabs } = await import("../src/ui/shell.js");
-    const model = await createShellModel(".", { state: emptyState(), aiAvailable: false });
+    const model = await createShellModel(await root(), { state: emptyState(), aiAvailable: false });
     const output = [...makeHeader(model).render(120), ...makeSidebar(model).render(28), ...makeContext(model).render(36), ...makeTabs(model).render(80)].join("\n");
     expect(output).toContain("WORKSPACES");
     expect(output).toContain("SESSION CONTEXT");
-    expect(output).toContain("Empty · no sessions");
+    expect(output).toContain("0 messages");
     expect(output).not.toMatch(/\bsession 1\b|\bsession 2\b|\bPARDRA AGENT\b/i);
   });
 });

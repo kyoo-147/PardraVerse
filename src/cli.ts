@@ -12,6 +12,7 @@ import { slugify, Store, uniqueId } from "./store.js";
 import type { Attempt, Language, Problem } from "./types.js";
 import { serveDashboard } from "./web.js";
 import { launchChat } from "./tui.js";
+import { SessionStore, type SessionSummary } from "./session-store.js";
 
 const program = new Command();
 const store = new Store();
@@ -42,7 +43,11 @@ provider.command("login").description("configure provider metadata and verify an
   console.log(`Saved metadata; no OAuth login is performed. Expected environment key: PRAC_AI_API_KEY or ${keyName}.`);
   const env = process.env.PRAC_AI_API_KEY ?? process.env[keyName];
   if (!env) throw new Error(`Missing environment API key (${keyName} or PRAC_AI_API_KEY). No key was persisted.`);
-  if (options.test) { const config = await loadProviderConfig(); console.log(await askAi("Reply with exactly OK.", "Reply with exactly OK.", config)); }
+  if (options.test) {
+    if (await store.exists() && (await store.load()).contestMode) throw new Error("AI is blocked while contest mode is on.");
+    const config = await loadProviderConfig();
+    console.log(await askAi("Reply with exactly OK.", "Reply with exactly OK.", config));
+  }
 });
 provider.command("status").action(async () => {
   const stored = await readStoredConfig(); if (!stored) return console.log("Not configured. Run `prac provider setup`.");
@@ -58,13 +63,58 @@ provider.command("test").description("make one authenticated model request (expl
 program
   .name("prac")
   .description("Chat-first local practice agent for coding and algorithms")
-  .version("0.2.0")
+  .version("0.3.0")
   .showSuggestionAfterError()
   .action(async () => launchChat());
 
-program.command("chat")
+const chat = program.command("chat")
   .description("open the conversational terminal workspace")
   .action(async () => launchChat());
+
+chat.command("list")
+  .description("list saved conversation sessions")
+  .option("--all", "include archived sessions")
+  .action(async (options: { all?: boolean }) => {
+    const sessions = new SessionStore();
+    const active = await sessions.active();
+    for (const item of await sessions.list({ includeArchived: options.all })) {
+      const marker = item.id === active.id ? pc.green("●") : item.status === "archived" ? pc.dim("○") : pc.magenta("·");
+      console.log(`${marker} ${pc.cyan(item.id.slice(0, 8))}  ${item.title ?? item.goal ?? item.problem ?? "Untitled"}  ${pc.dim(`${item.messageCount} messages`)}`);
+    }
+  });
+chat.command("new")
+  .description("create and open a conversation session")
+  .option("--title <text>", "session title")
+  .option("--goal <text>", "practice goal")
+  .option("--problem <id>", "related problem id")
+  .action(async (options: { title?: string; goal?: string; problem?: string }) => {
+    const created = await new SessionStore().create(options);
+    console.log(pc.green(`Opened ${created.id} ${created.title ?? ""}`.trim()));
+  });
+chat.command("open <id>").description("switch the active conversation").action(async (id: string) => {
+  const sessions = new SessionStore();
+  const match = await findConversation(sessions, id);
+  await sessions.open(match.id);
+  console.log(pc.green(`Opened ${match.id} ${match.title ?? ""}`.trim()));
+});
+chat.command("rename <id> <title>").description("rename a conversation").action(async (id: string, title: string) => {
+  const sessions = new SessionStore();
+  const match = await findConversation(sessions, id, true);
+  await sessions.rename(match.id, title);
+  console.log(pc.green(`Renamed ${match.id}.`));
+});
+chat.command("archive <id>").description("archive a conversation").action(async (id: string) => {
+  const sessions = new SessionStore();
+  const match = await findConversation(sessions, id);
+  await sessions.archive(match.id);
+  console.log(pc.green(`Archived ${match.id}.`));
+});
+chat.command("delete <id>").description("permanently delete a conversation").action(async (id: string) => {
+  const sessions = new SessionStore();
+  const match = await findConversation(sessions, id, true);
+  await sessions.delete(match.id);
+  console.log(pc.green(`Deleted ${match.id}.`));
+});
 
 program.command("init")
   .description("initialize a local practice workspace")
@@ -82,7 +132,7 @@ program.command("status")
   .action(async () => {
     const state = await store.load();
     const accepted = new Set(state.attempts.filter((item) => item.verdict === "accepted").map((item) => item.problemId));
-    console.log(pc.bold("coding_prac"));
+    console.log(pc.bold("PardraVerse"));
     console.log(`  mode      ${state.contestMode ? pc.yellow("CONTEST — AI blocked") : pc.green("practice")}`);
     console.log(`  topics    ${state.topics.length}`);
     console.log(`  problems  ${accepted.size}/${state.problems.length} accepted`);
@@ -328,6 +378,13 @@ function findProblem(problems: Problem[], id: string): Problem {
   const found = problems.find((item) => item.id === id);
   if (!found) throw new Error(`Unknown problem: ${id}`);
   return found;
+}
+
+async function findConversation(sessions: SessionStore, id: string, includeArchived = false): Promise<SessionSummary> {
+  const matches = (await sessions.list({ includeArchived })).filter((item) => item.id === id || item.id.startsWith(id));
+  if (!matches.length) throw new Error(`Unknown conversation session: ${id}`);
+  if (matches.length > 1) throw new Error(`Conversation session id is ambiguous: ${id}`);
+  return matches[0]!;
 }
 
 async function recordAttempt(state: Awaited<ReturnType<Store["load"]>>, problemId: string, verdict: Attempt["verdict"], passed: number, total: number, durationMs: number): Promise<void> {

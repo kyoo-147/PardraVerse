@@ -8,7 +8,7 @@ import { ChatStore } from "./chat-store.js";
 import { PracticeWorkspace } from "./practice.js";
 import { slugify } from "./store.js";
 
-export const PRACTICE_AGENT_SYSTEM = `You are coding_prac, a local coding-learning agent operating inside one practice workspace.
+export const PRACTICE_AGENT_SYSTEM = `You are PardraVerse, a local coding-learning agent operating inside one practice workspace.
 
 Your job is to help the learner think, code, test, and reflect through natural conversation. Use the workspace tools instead of asking the learner to memorize CLI commands. Keep responses concise and grounded in tool results.
 

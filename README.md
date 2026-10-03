@@ -19,6 +19,8 @@ PardraVerse helps you think first and code by hand. Talk through what you want t
 
 ![PardraVerse — Think First, Code by Hand](docs/assets/pardraverse-product.png)
 
+> Product concept artwork. The implemented terminal workspace is shown and described below.
+
 ## Quick start
 
 ```bash
@@ -39,37 +41,25 @@ Run my solution and explain the first failure without rewriting my code.
 Research this public link and save an editable study note: https://example.com
 ```
 
-No provider key is required for local status, problem browsing, or judging. AI coaching and workspace changes need a configured provider:
+No provider key is required for local status, problem browsing, session management, or judging. Provider metadata is stored separately from credentials; API keys remain environment-only:
 
 ```bash
-export PRAC_AI_PROVIDER=openai-compatible
-export PRAC_AI_BASE_URL=https://api.openai.com/v1
-export PRAC_AI_MODEL=gpt-5-mini
-export PRAC_AI_API_KEY=...
+prac provider list
+prac provider setup --provider openai-compatible --base-url https://api.openai.com/v1 --model gpt-4.1-mini
+export OPENAI_API_KEY=...
+prac provider status
+prac provider test
 ```
 
-Anthropic's Messages API is also supported; see [`.env.example`](.env.example).
+Anthropic's Messages API is also supported. `prac provider login` is an honest environment-key check, not browser OAuth, and never persists a secret. See [`.env.example`](.env.example).
 
 ## How it works
 
 The default `prac` command opens a full-screen conversation. The model does not receive a general shell. It gets a narrow set of practice tools for inspecting progress, creating topics and problems, reading or updating one solution, running saved tests, managing focused sessions, and fetching bounded public pages.
 
-```text
-┌─ coding_prac ──────────────────────────────────────────────────┐
-│                                                               │
-│  ◇ you                                                        │
-│    Run my current solution and help me understand the failure.│
-│                                                               │
-│  ◆ coding_prac                                                │
-│    ↳ judge problem                                      done  │
-│    The second case fails when duplicate values are present…   │
-│                                                               │
-├───────────────────────────────────────────────────────────────┤
-│  Write a message…                                             │
-├───────────────────────────────────────────────────────────────┤
-│  openai-compatible / gpt-5-mini · local workspace             │
-└───────────────────────────────────────────────────────────────┘
-```
+The cream-and-purple workspace uses the terminal width rather than stacking repeated speaker headings: conversations and local workspaces stay at left, the transcript and composer stay central, and live problem, files, and run context stays at right. Narrow terminals collapse both side panes. Empty and unavailable states are explicit; the shell does not invent agents, metrics, or sessions.
+
+Inside the TUI, `/sessions`, `/new [title]`, `/open <id>`, `/rename <title>`, and `/archive` manage durable conversation sessions without leaving the workspace.
 
 The teaching policy is deliberate by default:
 
@@ -85,8 +75,9 @@ The teaching policy is deliberate by default:
 All personal runtime data stays under `.prac/` and is gitignored:
 
 - `.prac/state.json` — topics, problems, attempts, and active session
-- `.prac/chat/current.json` — restorable conversation
-- `.prac/chat/archive/` — previous conversations
+- `.prac/chat/sessions/<id>.json` — independently restorable conversations
+- `.prac/chat/sessions.json` — active-session pointer and session metadata
+- `.prac/chat/current.json` and `.prac/chat/archive/` — migrated legacy transcript data
 - `.prac/events.jsonl` — append-only lifecycle and tool events
 - `.prac/sessions.md` — finished-session reflections
 
@@ -125,6 +116,7 @@ Conversation is the primary interface. Explicit commands remain available for sc
 
 ```text
 prac chat
+prac chat list|new|open|rename|archive|delete
 prac init
 prac status
 prac doctor
@@ -135,6 +127,7 @@ prac session start|finish
 prac contest on|off|status
 prac coach hint|review
 prac research <url>
+prac provider list|setup|login|status|test
 prac serve
 ```
 
