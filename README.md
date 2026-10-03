@@ -171,3 +171,9 @@ The implementation adapts terminal-agent patterns from Pi, Codex, Grok Build, an
 ## License
 
 Apache-2.0 — see [`LICENSE`](LICENSE).
+
+<br>
+
+<div align="center">
+  <img src="docs/assets/pardraverse-logo.png" alt="PardraVerse" width="560">
+</div>
