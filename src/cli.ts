@@ -37,10 +37,9 @@ provider.command("setup").option("--provider <name>", "openai-compatible or anth
 provider.command("login").description("configure provider metadata and verify an environment API key; no OAuth is used").option("--provider <name>", "openai-compatible or anthropic").option("--base-url <url>", "provider API base URL").option("--model <model>", "model identifier").option("--test", "perform one explicit authenticated request").action(async (options: { provider?: string; baseUrl?: string; model?: string; test?: boolean }) => {
   const name = validateProvider(options.provider ?? "openai-compatible");
   const defaults = defaultsFor(name);
-  await saveStoredConfig({ provider: name, baseUrl: validateBaseUrl(options.baseUrl ?? defaults.baseUrl), model: options.model ?? defaults.model });
+  const keyName = name === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY";
   await saveStoredConfig({ provider: name, baseUrl: validateBaseUrl(options.baseUrl ?? defaults.baseUrl), model: options.model ?? defaults.model });
   console.log(`Saved metadata; no OAuth login is performed. Expected environment key: PRAC_AI_API_KEY or ${keyName}.`);
-  const keyName = name === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY";
   const env = process.env.PRAC_AI_API_KEY ?? process.env[keyName];
   if (!env) throw new Error(`Missing environment API key (${keyName} or PRAC_AI_API_KEY). No key was persisted.`);
   if (options.test) { const config = await loadProviderConfig(); console.log(await askAi("Reply with exactly OK.", "Reply with exactly OK.", config)); }

@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import path from "node:path";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 
 export type ProviderName = "openai-compatible" | "anthropic";
 export interface StoredProviderConfig { provider: ProviderName; baseUrl: string; model: string }
@@ -46,8 +46,14 @@ export async function saveStoredConfig(config: StoredProviderConfig, file = conf
   if (!config.model.trim()) throw new Error("Model must not be empty.");
   await mkdir(path.dirname(file), { recursive: true });
   const temporary = `${file}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(temporary, `${JSON.stringify({ provider: config.provider, baseUrl: config.baseUrl, model: config.model }, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
-  await rename(temporary, file);
+  try {
+    await writeFile(temporary, `${JSON.stringify({ provider: config.provider, baseUrl: config.baseUrl, model: config.model }, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+    await rename(temporary, file);
+  } finally {
+    await unlink(temporary).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== "ENOENT") throw error;
+    });
+  }
 }
 
 export async function loadProviderConfig(env: NodeJS.ProcessEnv = process.env, file = configFilePath(env)): Promise<ProviderConfig> {
