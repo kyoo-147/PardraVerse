@@ -6,10 +6,14 @@
 
 PardraVerse helps you think first and code by hand. Talk through what you want to practice, while the local agent manages problems, solution files, tests, judging, research, and session history behind one conversational workspace.
 
-[Quick start](#quick-start) · [How it works](#how-it-works) · [Architecture](docs/RESEARCH.md) · [Contributing](CONTRIBUTING.md)
+[Website](https://pardraverse.navinresearch.com) · [Quick start](#quick-start) · [How it works](#how-it-works) · [Architecture](docs/RESEARCH.md) · [Contributing](CONTRIBUTING.md)
 
-[![License](https://img.shields.io/badge/license-Apache--2.0-b7f36b?style=flat-square&labelColor=121412)](LICENSE)
-![Node](https://img.shields.io/badge/node-%3E%3D22.19-b7f36b?style=flat-square&labelColor=121412)
+[![Website](https://img.shields.io/badge/Website-pardraverse.navinresearch.com-ff643e?style=flat-square&labelColor=17191f)](https://pardraverse.navinresearch.com)
+[![Version](https://img.shields.io/github/package-json/v/kyoo-147/PardraVerse?style=flat-square&label=Version&labelColor=17191f&color=ffb52e)](package.json)
+[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A522.19-ff643e?style=flat-square&labelColor=17191f)](package.json)
+[![License](https://img.shields.io/github/license/kyoo-147/PardraVerse?style=flat-square&label=License&labelColor=17191f&color=ffb52e)](LICENSE)
+[![Security](https://img.shields.io/badge/Security-Policy-ff643e?style=flat-square&labelColor=17191f)](SECURITY.md)
+[![Contributing](https://img.shields.io/badge/Contributing-Guide-ffb52e?style=flat-square&labelColor=17191f)](CONTRIBUTING.md)
 
 </div>
 
@@ -133,6 +137,24 @@ prac coach hint|review
 prac research <url>
 prac serve
 ```
+
+## Repository layout
+
+| Path | Purpose |
+|---|---|
+| `src/` | Conversational agent, TUI, practice services, local judge, and read-only web view |
+| `tests/` | Unit and integration coverage for agent tools, persistence, runners, and web rendering |
+| `docs/` | Architecture research, roadmap, and product imagery |
+| `solutions/` | Learner-owned solution files created by PardraVerse |
+| `research/` | Editable study notes generated from bounded public-page research |
+| `.prac/` | Gitignored local state, transcripts, events, attempts, and session history |
+
+## Documentation
+
+- [Architecture and research boundaries](docs/RESEARCH.md)
+- [Incremental roadmap](docs/ROADMAP.md)
+- [Security model](SECURITY.md)
+- [Contributing guide](CONTRIBUTING.md)
 
 ## Development
 

@@ -2,6 +2,14 @@
   "name": "coding-prac",
   "version": "0.2.0",
   "description": "Chat-first local coding and algorithm practice agent.",
+  "homepage": "https://pardraverse.navinresearch.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kyoo-147/PardraVerse.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kyoo-147/PardraVerse/issues"
+  },
   "type": "module",
   "bin": {
     "prac": "dist/cli.js"

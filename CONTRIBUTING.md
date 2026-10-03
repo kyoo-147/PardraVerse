@@ -22,8 +22,8 @@ Requirements:
 - Optional Python 3 for Python runner testing
 
 ```bash
-git clone https://github.com/kyoo-147/coding_prac.git
-cd coding_prac
+git clone https://github.com/kyoo-147/PardraVerse.git
+cd PardraVerse
 npm install
 npm run check
 ```
