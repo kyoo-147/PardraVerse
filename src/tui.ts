@@ -50,7 +50,7 @@ export async function launchChat(root = process.cwd()): Promise<void> {
   }
 
   const state = await workspace.store.load();
-  const model = createShellModel(root, { aiAvailable: Boolean(runtime), contestMode: state.contestMode, modelLabel: runtime?.modelLabel });
+  const model = await createShellModel(root, { aiAvailable: Boolean(runtime), state, modelLabel: runtime?.modelLabel });
   const terminal = new ProcessTerminal();
   const tui = new TuiAltScreen(terminal);
   const transcript = new Container();
@@ -58,14 +58,14 @@ export async function launchChat(root = process.cwd()): Promise<void> {
   const editor = new Editor(tui, { borderColor: pc.magenta, selectList: selectTheme }, { paddingX: 1 });
   const scroll = new ScrollView(transcript, { follow: "end", primary: true, overscroll: "chain" });
   const center = new VStack([
-    makeTabs(),
+    makeTabs(model),
     { component: scroll, basis: 0, grow: 1, minSize: 1 },
   ]);
   const bottom = new VStack([editor, status, new Text(pc.dim("  Ctrl+L clear  ·  /help commands  ·  /new fresh session  ·  /quit exit"), 1, 0)]);
   const main = new HStack([
-    { component: makeSidebar(model), basis: 28, minSize: 22, maxSize: 34 },
+    { component: makeSidebar(model), basis: 28, minSize: 22, maxSize: 34, visible: (viewport) => viewport.width >= 110 },
     { component: center, basis: 0, grow: 1, minSize: 34 },
-    { component: makeContext(model, !runtime ? (offlineReason.includes("Contest") ? "Contest lock: local actions only" : "AI unavailable: local actions only") : undefined), basis: 36, minSize: 28, maxSize: 44 },
+    { component: makeContext(model, !runtime ? (offlineReason.includes("Contest") ? "Contest lock: local actions only" : "AI unavailable: local actions only") : undefined), basis: 36, minSize: 28, maxSize: 44, visible: (viewport) => viewport.width >= 110 },
   ]);
   tui.setLayoutRoot(new VStack([makeHeader(model), { component: main, basis: 0, grow: 1, minSize: 8 }, { component: bottom, basis: "auto", shrink: 1, minSize: 3 }]));
   tui.setFocus(editor);

@@ -1,7 +1,9 @@
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import type { Attempt, PracState } from "../types.js";
 
 export type ShellMode = "practice" | "local-only" | "contest";
-
+export interface SessionRecord { id: string; label: string; detail: string; active?: boolean; }
 export interface ShellModel {
   brand: string;
   root: string;
@@ -10,28 +12,85 @@ export interface ShellModel {
   modelLabel: string;
   sessionLabel: string;
   workspaceItems: string[];
-  sessionItems: string[];
+  sessionItems: SessionRecord[];
   agentItems: string[];
+  activeGoal?: string;
+  activeProblem?: { title: string; difficulty: string; language: string };
+  files: string[];
+  lastAttempt?: Attempt;
+  sourceCount: number;
 }
 
-export function createShellModel(root: string, options: {
+/** Reads persisted session history without allowing an unbounded file into the TUI. */
+export class SessionStore {
+  constructor(private readonly root: string) {}
+  async list(): Promise<SessionRecord[]> {
+    const file = path.join(this.root, ".prac", "sessions.md");
+    const raw = await readFile(file, "utf8").catch(() => "");
+    return raw.slice(0, 64 * 1024).split(/\r?\n/).flatMap((line) => {
+      const match = line.match(/^[-*]\s+(\S+)\s+\|\s*([^|]+)\|\s*([^|]+)\|\s*(.+)$/);
+      if (!match || !match[1] || !match[2] || !match[3] || !match[4]) return [];
+      const [, id, duration, problem, goal] = match;
+      return [{ id, label: goal.trim(), detail: `${problem.trim()} · ${duration.trim()}` }];
+    }).slice(-20).reverse();
+  }
+  active(state: PracState): SessionRecord | undefined {
+    if (!state.activeSession) return undefined;
+    return { id: "active", label: state.activeSession.goal, detail: state.activeSession.problemId ?? "open practice", active: true };
+  }
+}
+
+async function boundedFiles(root: string, directory: string): Promise<string[]> {
+  const entries = await readdir(path.join(root, directory), { withFileTypes: true }).catch(() => []);
+  const files: string[] = [];
+  for (const entry of entries.slice(0, 20)) {
+    if (!entry.isFile()) continue;
+    const file = path.join(root, directory, entry.name);
+    const readable = await readFile(file, "utf8").then((value) => value.slice(0, 512)).catch(() => undefined);
+    if (readable !== undefined) files.push(path.join(directory, entry.name));
+  }
+  return files;
+}
+
+async function existingEntries(root: string): Promise<string[]> {
+  const entries = await readdir(root, { withFileTypes: true }).catch(() => []);
+  const names = entries.filter((entry) => !entry.name.startsWith(".")).map((entry) => entry.name).slice(0, 30);
+  return names.length ? names : ["Empty · no workspace files"];
+}
+
+export async function createShellModel(root: string, options: {
+  state: PracState;
   aiAvailable: boolean;
-  contestMode?: boolean;
   modelLabel?: string;
-  sessionLabel?: string;
-}): ShellModel {
-  const contestMode = options.contestMode === true;
-  const mode: ShellMode = contestMode ? "contest" : options.aiAvailable ? "practice" : "local-only";
+  sessions?: SessionStore;
+}): Promise<ShellModel> {
+  const absoluteRoot = path.resolve(root);
+  const state = options.state;
+  const mode: ShellMode = state.contestMode ? "contest" : options.aiAvailable ? "practice" : "local-only";
+  const sessionStore = options.sessions ?? new SessionStore(absoluteRoot);
+  const history = await sessionStore.list();
+  const active = sessionStore.active(state);
+  const problem = state.activeSession?.problemId ? state.problems.find((item) => item.id === state.activeSession?.problemId) : undefined;
+  const solutions = await boundedFiles(absoluteRoot, "solutions");
+  const research = (await Promise.all(["research", "docs", "sources"].map((directory) => boundedFiles(absoluteRoot, directory)))).flat();
+  const files = (await existingEntries(absoluteRoot)).filter((name) => name !== "solutions").slice(0, 12);
+  if (solutions.length) files.push(...solutions.slice(0, 12));
+  if (research.length) files.push(...research.slice(0, 12));
+  const sessions = active ? [active, ...history] : history;
+  const attempt = state.attempts.length ? state.attempts[state.attempts.length - 1] : undefined;
   return {
-    brand: "PARDRA\u00b7VERSE",
-    root: path.resolve(root),
-    mode,
-    modeLabel: contestMode ? "CONTEST LOCK" : options.aiAvailable ? "PRACTICE COACH" : "LOCAL ONLY",
+    brand: "PARDRA·VERSE", root: absoluteRoot, mode,
+    modeLabel: state.contestMode ? "CONTEST LOCK" : options.aiAvailable ? "PRACTICE COACH" : "LOCAL ONLY",
     modelLabel: options.modelLabel ?? (options.aiAvailable ? "configured" : "AI unavailable"),
-    sessionLabel: options.sessionLabel ?? "new session",
-    workspaceItems: [path.basename(path.resolve(root)) || "workspace", "  local state", "  problems", "  solutions"],
-    sessionItems: [options.sessionLabel ?? "new session", "No saved sessions surfaced"],
-    agentItems: ["practice coach", "local runner"],
+    sessionLabel: active?.label ?? history[0]?.label ?? "Empty · no active session",
+    workspaceItems: [path.basename(absoluteRoot) || absoluteRoot, `state · ${state.problems.length} problem${state.problems.length === 1 ? "" : "s"}`, ...files],
+    sessionItems: sessions.length ? sessions.slice(0, 12) : [{ id: "empty", label: "Empty · no sessions", detail: "start a practice session" }],
+    agentItems: options.aiAvailable ? ["configured practice coach"] : ["Unavailable · AI provider"],
+    activeGoal: state.activeSession?.goal,
+    activeProblem: problem && { title: problem.title, difficulty: problem.difficulty, language: problem.language },
+    files: files.length ? files : ["Unavailable · workspace files"],
+    lastAttempt: attempt,
+    sourceCount: state.sources.length,
   };
 }
 
@@ -43,8 +102,5 @@ export function formatTurnTime(timestamp?: number): string {
 export function contentText(content: unknown): string {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
-  return content
-    .filter((block): block is { type: "text"; text: string } => Boolean(block && typeof block === "object" && (block as { type?: unknown }).type === "text" && typeof (block as { text?: unknown }).text === "string"))
-    .map((block) => block.text)
-    .join("\n");
+  return content.filter((block): block is { type: "text"; text: string } => Boolean(block && typeof block === "object" && (block as { type?: unknown }).type === "text" && typeof (block as { text?: unknown }).text === "string")).map((block) => block.text).join("\n");
 }
