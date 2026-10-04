@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { Key, matchesKey } from "@earendil-works/pi-tui";
 import { SessionStore } from "../src/session-store.js";
-import { createConversation, selectAdjacentConversation } from "../src/ui-interactions.js";
+import { createConversation, createShutdownCoordinator, selectAdjacentConversation } from "../src/ui-interactions.js";
 
 const roots: string[] = [];
 afterEach(async () => Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))));
@@ -63,5 +63,53 @@ describe("TUI session interactions", () => {
     const selected = await selectAdjacentConversation(sessions, [], "next");
 
     expect(selected.id).toBe(remaining.id);
+  });
+});
+
+describe("TUI shutdown coordination", () => {
+  it("waits for cleanup before finalizing and exiting", async () => {
+    const events: string[] = [];
+    let finishCleanup!: () => void;
+    const cleanupReady = new Promise<void>((resolve) => { finishCleanup = resolve; });
+    const shutdown = createShutdownCoordinator({
+      cleanup: async () => { events.push("cleanup started"); await cleanupReady; events.push("cleanup finished"); },
+      finalize: () => { events.push("finalized"); },
+      exit: (code) => { events.push(`exit ${code}`); },
+    });
+
+    const terminating = shutdown.terminate(143);
+    await Promise.resolve();
+    expect(events).toEqual(["cleanup started"]);
+    finishCleanup();
+    await terminating;
+
+    expect(events).toEqual(["cleanup started", "cleanup finished", "finalized", "exit 143"]);
+  });
+
+  it("runs cleanup and finalization once across competing shutdown requests", async () => {
+    const calls = { cleanup: 0, finalize: 0, exit: [] as number[] };
+    const shutdown = createShutdownCoordinator({
+      cleanup: async () => { calls.cleanup += 1; },
+      finalize: () => { calls.finalize += 1; },
+      exit: (code) => { calls.exit.push(code); },
+    });
+
+    await Promise.all([shutdown.stop(), shutdown.stop(), shutdown.terminate(130), shutdown.terminate(143)]);
+
+    expect(calls).toEqual({ cleanup: 1, finalize: 1, exit: [130] });
+  });
+
+  it("finalizes and exits without rejecting when cleanup fails", async () => {
+    const events: string[] = [];
+    const failure = new Error("disk full");
+    const shutdown = createShutdownCoordinator({
+      cleanup: async () => { throw failure; },
+      finalize: () => { events.push("finalized"); },
+      exit: (code) => { events.push(`exit ${code}`); },
+      onError: (error) => { events.push(error === failure ? "reported" : "wrong error"); },
+    });
+
+    await expect(shutdown.terminate(130)).resolves.toBeUndefined();
+    expect(events).toEqual(["finalized", "reported", "exit 130"]);
   });
 });

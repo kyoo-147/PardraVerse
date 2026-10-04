@@ -4,6 +4,60 @@ import type { SessionStore } from "./session-store.js";
 
 export type SessionDirection = "next" | "previous";
 
+export interface ShutdownCoordinator {
+  stop(): Promise<void>;
+  terminate(code: number): Promise<void>;
+}
+
+export function createShutdownCoordinator(options: {
+  cleanup: () => Promise<void>;
+  finalize: () => void;
+  exit: (code: number) => void;
+  onError?: (error: unknown) => void;
+}): ShutdownCoordinator {
+  let stopPromise: Promise<void> | undefined;
+  let terminatePromise: Promise<void> | undefined;
+
+  const stop = (): Promise<void> => {
+    stopPromise ??= (async () => {
+      let failure: unknown;
+      try {
+        await options.cleanup();
+      } catch (error) {
+        failure = error;
+      } finally {
+        try {
+          options.finalize();
+        } catch (error) {
+          failure ??= error;
+        }
+      }
+      if (failure !== undefined) {
+        try {
+          options.onError?.(failure);
+        } catch {
+          // Shutdown must settle even if its diagnostic sink is unavailable.
+        }
+      }
+    })();
+    return stopPromise;
+  };
+
+  return {
+    stop,
+    terminate(code: number): Promise<void> {
+      terminatePromise ??= (async () => {
+        try {
+          await stop();
+        } finally {
+          options.exit(code);
+        }
+      })();
+      return terminatePromise;
+    },
+  };
+}
+
 export async function createConversation(
   sessions: SessionStore,
   messages: AgentMessage[],

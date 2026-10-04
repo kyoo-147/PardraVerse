@@ -21,7 +21,7 @@ import type { ConversationSession } from "./types.js";
 import type { SessionSummary } from "./session-store.js";
 import { answerOffline } from "./offline-chat.js";
 import { PracticeWorkspace } from "./practice.js";
-import { createConversation, selectAdjacentConversation, type SessionDirection } from "./ui-interactions.js";
+import { createConversation, createShutdownCoordinator, selectAdjacentConversation, type SessionDirection } from "./ui-interactions.js";
 import { contentText, createShellModel, formatTurnTime } from "./ui/view-model.js";
 import { makeContext, makeFooter, makeHeader, makeSidebar, makeStatus, makeTabs } from "./ui/shell.js";
 import { c, theme, fgAnsi, bgAnsi, TerminalThemeManager } from "./ui/theme.js";
@@ -81,17 +81,7 @@ export async function launchChat(root = process.cwd()): Promise<void> {
   const tui = new TuiAltScreen(terminal);
   const themeManager = new TerminalThemeManager(terminal);
   const restoreThemeHandler = (): void => themeManager.restoreTheme();
-  const terminate = (code: number): void => {
-    try {
-      tui.stop();
-    } finally {
-      themeManager.restoreTheme();
-      process.exit(code);
-    }
-  };
   process.once("exit", restoreThemeHandler);
-  process.once("SIGINT", () => terminate(130));
-  process.once("SIGTERM", () => terminate(143));
   themeManager.applyTheme();
   const transcript = new Container();
   const status = makeStatus("");
@@ -174,30 +164,42 @@ export async function launchChat(root = process.cwd()): Promise<void> {
   let assistantView: Markdown | undefined;
   let assistantText = "";
   let lastInterrupt = 0;
-  let stopping = false;
   let resolveExit!: () => void;
   const exited = new Promise<void>((resolve) => {
     resolveExit = resolve;
   });
 
-  const stop = async (): Promise<void> => {
-    if (stopping) return;
-    stopping = true;
-    editor.disableSubmit = true;
-    try {
-      themeManager.restoreTheme();
-    } catch {}
-    if (runtime && !localFallbackActive) {
-      await runtime.agent.waitForIdle();
-      await chatStore.replaceMessages(runtime.agent.state.messages as AgentMessage[]);
-    } else {
-      await chatStore.replaceMessages(offlineMessages);
-    }
-    await chatStore.event("ui.closed", { mode: runtime ? "ai" : "local" });
-    await terminal.drainInput(1_000);
-    tui.stop();
-    resolveExit();
-  };
+  const shutdown = createShutdownCoordinator({
+    cleanup: async () => {
+      editor.disableSubmit = true;
+      if (runtime && !localFallbackActive) {
+        await runtime.agent.waitForIdle();
+        await chatStore.replaceMessages(runtime.agent.state.messages as AgentMessage[]);
+      } else {
+        await chatStore.replaceMessages(offlineMessages);
+      }
+      await chatStore.event("ui.closed", { mode: runtime ? "ai" : "local" });
+      await terminal.drainInput(1_000);
+    },
+    finalize: () => {
+      try {
+        tui.stop();
+      } finally {
+        try {
+          themeManager.restoreTheme();
+        } finally {
+          resolveExit();
+        }
+      }
+    },
+    exit: (code) => process.exit(code),
+    onError: (error) => process.stderr.write(`Failed to save chat during shutdown: ${error instanceof Error ? error.message : String(error)}\n`),
+  });
+  const stop = (): Promise<void> => shutdown.stop();
+  const handleSigint = (): void => { void shutdown.terminate(130); };
+  const handleSigterm = (): void => { void shutdown.terminate(143); };
+  process.once("SIGINT", handleSigint);
+  process.once("SIGTERM", handleSigterm);
 
   runtime?.agent.subscribe(async (event) => {
     if (event.type === "message_start" && event.message.role === "assistant") {
