@@ -46,10 +46,10 @@ export function makeHeader(model: ShellModel): Component {
       // Dynamically budget column widths for the 4 metadata columns:
       // [workspace] │ [session] │ [mode] │ [layout/version]
       // Ensure row 1 and row 2 use identical column widths so vertical dividers align perfectly.
-      let col0 = 13; // workspace
+      let col0 = 12; // workspace
       let col1 = 10; // session
       const col2 = 14; // mode (fits "PRACTICE COACH")
-      const col3 = 10; // layout / version
+      const col3 = 11; // layout / version (fits "layout WIDE")
 
       if (width >= 150) {
         col0 = 22;
@@ -58,7 +58,7 @@ export function makeHeader(model: ShellModel): Component {
         col0 = 18;
         col1 = 14;
       } else if (width >= 120) {
-        col0 = 13;
+        col0 = 12;
         col1 = 10;
       } else {
         col0 = 11;

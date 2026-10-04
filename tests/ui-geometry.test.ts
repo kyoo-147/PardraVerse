@@ -197,6 +197,30 @@ describe("Boxed Components Rendering", () => {
     expect(rightSideDividers1).toEqual(rightSideDividers2);
   });
 
+  it("renders unclipped layout WIDE and preserves exact visible width across standard and wide widths", async () => {
+    const model = await createShellModel(process.cwd(), {
+      state: emptyState(),
+      aiAvailable: true,
+      modelLabel: "test-model",
+    });
+    const header = makeHeader(model);
+    const { stripTerminalSequences } = await import("@earendil-works/pi-tui");
+
+    for (const width of [80, 96, 120, 140, 157, 160]) {
+      const lines = header.render(width);
+      for (const line of lines) {
+        expect(visibleWidth(line)).toBe(width);
+      }
+      if (width >= 110) {
+        const plain = lines.map((l) => stripTerminalSequences(l)).join("\n");
+        expect(plain).toContain("layout WIDE");
+        expect(plain).not.toContain("layout …");
+        expect(plain).not.toContain("layout ...");
+        expect(plain).toContain(model.version);
+      }
+    }
+  });
+
   it("renders boxed navigator with truthful problems and sessions only", async () => {
     const model = await createShellModel(process.cwd(), {
       state: emptyState(),
