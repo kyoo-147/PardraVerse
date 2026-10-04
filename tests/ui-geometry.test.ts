@@ -81,6 +81,33 @@ describe("Pure Layout Engine Geometry", () => {
     expect(layout.centerHeight).toBe(40 - 4 - 3 - 3 - 1 - 4); // 25 rows of transcript
   });
 
+  it("handles medium breakpoint geometry (96 to 109 cols)", () => {
+    const layout = computeShellLayout(100, 30);
+    expect(layout.isWide).toBe(false);
+    expect(layout.isCompact).toBe(false);
+    expect(layout.sidebarWidth).toBe(24);
+    expect(layout.contextWidth).toBe(0);
+    expect(layout.centerWidth).toBe(100 - 24); // 76 cols
+    expect(layout.headerHeight).toBe(4);
+    expect(layout.footerHeight).toBe(4);
+    expect(layout.centerHeight).toBe(30 - 4 - 3 - 3 - 1 - 4); // 15 rows
+  });
+
+  it("handles wide desktop geometry (> 120 cols)", () => {
+    const layout140 = computeShellLayout(140, 40);
+    expect(layout140.isWide).toBe(true);
+    expect(layout140.isCompact).toBe(false);
+    expect(layout140.sidebarWidth).toBe(30);
+    expect(layout140.contextWidth).toBe(34);
+    expect(layout140.centerWidth).toBe(76);
+
+    const layout160 = computeShellLayout(160, 45);
+    expect(layout160.isWide).toBe(true);
+    expect(layout160.sidebarWidth).toBe(30);
+    expect(layout160.contextWidth).toBe(34);
+    expect(layout160.centerWidth).toBe(96);
+  });
+
   it("handles intentional compact mode below breakpoint (< 96 cols)", () => {
     const layout = computeShellLayout(80, 24);
     expect(layout.isCompact).toBe(true);
@@ -134,6 +161,42 @@ describe("Boxed Components Rendering", () => {
     expect(joined).toContain("session");
   });
 
+  it("aligns header metadata column separators vertically between row 1 and row 2", async () => {
+    const model = await createShellModel(process.cwd(), {
+      state: emptyState(),
+      aiAvailable: true,
+      modelLabel: "test-model",
+    });
+    const header = makeHeader(model);
+    const lines = header.render(120);
+    expect(lines).toHaveLength(4);
+
+    const { stripTerminalSequences } = await import("@earendil-works/pi-tui");
+    const row1 = stripTerminalSequences(lines[1]!);
+    const row2 = stripTerminalSequences(lines[2]!);
+
+    // Extract divider indices inside content (skip index 0 border │ and last border │)
+    const findDividers = (row: string) => {
+      const indices: number[] = [];
+      for (let i = 1; i < row.length - 1; i++) {
+        if (row[i] === "│") indices.push(i);
+      }
+      return indices;
+    };
+
+    const row1Dividers = findDividers(row1);
+    const row2Dividers = findDividers(row2);
+
+    // There should be 3 internal column dividers separating the 4 metadata columns
+    // (col1 | col2 | col3 | col4)
+    // Both rows must have dividers at the exact same positions
+    const rightSideDividers1 = row1Dividers.slice(-3);
+    const rightSideDividers2 = row2Dividers.slice(-3);
+    expect(rightSideDividers1).toHaveLength(3);
+    expect(rightSideDividers2).toHaveLength(3);
+    expect(rightSideDividers1).toEqual(rightSideDividers2);
+  });
+
   it("renders boxed navigator with truthful problems and sessions only", async () => {
     const model = await createShellModel(process.cwd(), {
       state: emptyState(),
@@ -150,6 +213,24 @@ describe("Boxed Components Rendering", () => {
     for (const row of lines) {
       expect(visibleWidth(row)).toBe(26);
     }
+  });
+
+  it("styles active problem with active yellow dot and inactive items with muted circular dots", async () => {
+    const state = emptyState();
+    state.problems.push(
+      { id: "p1", title: "Active problem", topic: "arrays", difficulty: "easy", language: "javascript", statement: "", constraints: [], tests: [], createdAt: "2026-01-01" },
+      { id: "p2", title: "Inactive problem", topic: "graphs", difficulty: "hard", language: "python", statement: "", constraints: [], tests: [], createdAt: "2026-01-01" }
+    );
+    state.activeSession = { problemId: "p1", goal: "practice", startedAt: "2026-01-01T00:00:00.000Z" };
+    const model = await createShellModel(process.cwd(), { state, aiAvailable: false });
+    const sidebar = makeSidebar(model);
+    const rendered = sidebar.render(30).join("\n");
+
+    const { stripTerminalSequences } = await import("@earendil-works/pi-tui");
+    const plain = stripTerminalSequences(rendered);
+    // Both active and inactive problems use circular dot ● (active yellow, inactive muted)
+    expect(plain).toMatch(/● Active problem/);
+    expect(plain).toMatch(/● Inactive problem/);
   });
 
   it("renders boxed session tabs without fake controls", async () => {
@@ -184,6 +265,35 @@ describe("Boxed Components Rendering", () => {
     for (const row of lines) {
       expect(visibleWidth(row)).toBe(32);
     }
+  });
+
+  it("formats context fields with consistent label-then-value visual hierarchy", async () => {
+    const state = emptyState();
+    state.problems.push({
+      id: "p1",
+      title: "Prefix sums",
+      topic: "arrays",
+      difficulty: "medium",
+      language: "javascript",
+      statement: "",
+      constraints: [],
+      tests: [],
+      createdAt: "2026-01-01",
+    });
+    state.activeSession = { problemId: "p1", goal: "Practice arrays", startedAt: "2026-01-01T00:00:00.000Z" };
+    const model = await createShellModel(process.cwd(), { state, aiAvailable: true });
+    const context = makeContext(model);
+    const lines = context.render(34);
+
+    const { stripTerminalSequences } = await import("@earendil-works/pi-tui");
+    const plainLines = lines.map((l) => stripTerminalSequences(l));
+
+    // Verify Difficulty is on its own label line, followed by the indented difficulty value line
+    const diffLabelIndex = plainLines.findIndex((l) => l.includes("Difficulty"));
+    expect(diffLabelIndex).toBeGreaterThan(-1);
+    expect(plainLines[diffLabelIndex]).not.toContain("MEDIUM");
+    expect(plainLines[diffLabelIndex + 1]).toContain("MEDIUM");
+    expect(plainLines[diffLabelIndex + 1]).toContain("javascript");
   });
 
   it("renders compact footer with only real controls and no fake stats", async () => {

@@ -96,10 +96,13 @@ export const c = {
   borderSubtle: (text: string) => foreground(theme.colors.border.subtle, text),
   borderFocus: (text: string) => foreground(theme.colors.border.focus, text),
   activeDot: (text: string) => foreground(theme.colors.status.active, text),
+  readyDot: (text: string) => foreground(theme.colors.status.ready, text),
   successDot: (text: string) => foreground(theme.colors.status.success, text),
   infoDot: (text: string) => foreground(theme.colors.status.info, text),
   warningDot: (text: string) => foreground(theme.colors.status.warning, text),
   errorDot: (text: string) => foreground(theme.colors.status.error, text),
+  codeBg: (text: string) => background(theme.colors.surface.code, text),
+  raisedBg: (text: string) => background(theme.colors.background.raised, text),
   bold: (text: string) => `\x1b[1m${text}\x1b[22m`,
   dim: (text: string) => `\x1b[2m${text}\x1b[22m`,
 };

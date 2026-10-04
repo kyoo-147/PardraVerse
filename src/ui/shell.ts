@@ -43,47 +43,72 @@ export function makeHeader(model: ShellModel): Component {
       const available = width - 4; // inside box borders
       const layoutLabel = width >= 110 ? "WIDE" : "COMPACT";
 
+      // Dynamically budget column widths for the 4 metadata columns:
+      // [workspace] │ [session] │ [mode] │ [layout/version]
+      // Ensure row 1 and row 2 use identical column widths so vertical dividers align perfectly.
+      let col0 = 13; // workspace
+      let col1 = 10; // session
+      const col2 = 14; // mode (fits "PRACTICE COACH")
+      const col3 = 10; // layout / version
+
+      if (width >= 150) {
+        col0 = 22;
+        col1 = 16;
+      } else if (width >= 135) {
+        col0 = 18;
+        col1 = 14;
+      } else if (width >= 120) {
+        col0 = 13;
+        col1 = 10;
+      } else {
+        col0 = 11;
+        col1 = 9;
+      }
+
+      const rightWidth = col0 + 3 + col1 + 3 + col2 + 3 + col3;
+
       // Row 1: Left Brand Title, Right Column Headers
       const brandTitle = ` ${c.accentStrong("🐺  " + c.bold("PARDRAVERSE"))}`;
-      const colHeaders = [
-        `${c.muted("workspace")}`,
-        `${c.muted("session")}`,
-        `${c.muted("mode")}`,
-        `${c.muted("layout")} ${c.primary(layoutLabel)}`,
-      ].join(` ${c.border("│")} `);
+      const headerCells = [
+        padToWidth(c.muted("workspace"), col0),
+        padToWidth(c.muted("session"), col1),
+        padToWidth(c.muted("mode"), col2),
+        padToWidth(`${c.muted("layout")} ${c.primary(layoutLabel)}`, col3),
+      ];
+      const colHeaders = headerCells.join(` ${c.border("│")} `);
 
       const titleVis = visibleWidth(brandTitle);
-      const colHeadersVis = visibleWidth(colHeaders);
       let row1 = "";
-      if (titleVis + colHeadersVis + 2 <= available) {
-        row1 = brandTitle + " ".repeat(available - titleVis - colHeadersVis) + colHeaders;
+      if (titleVis + rightWidth + 2 <= available) {
+        row1 = brandTitle + " ".repeat(available - titleVis - rightWidth) + colHeaders;
       } else {
         row1 = clip(`${brandTitle} · ${workspaceName} · ${modeText}`, available);
       }
 
       // Row 2: Left Tagline, Right Column Values
-      const tagline = ` ${c.muted("local-first practice coach")}  ${c.border("│")}  ${c.terminal("think first. code by hand.")}`;
-      const colValues = [
-        `${c.primary(workspaceName)}`,
-        `${c.primary(sessionName)}`,
-        `${modeText}`,
-        `${c.muted(versionLabel)}`,
-      ].join(` ${c.border("│")} `);
+      const fullTagline = ` ${c.muted("local-first practice coach")} ${c.border("│")} ${c.terminal("think first. code by hand.")}`;
+      const shortTagline = ` ${c.muted("local-first practice coach")}`;
+      const tagline = visibleWidth(fullTagline) + rightWidth + 2 <= available ? fullTagline : shortTagline;
+
+      const valueCells = [
+        padToWidth(c.primary(clip(workspaceName, col0)), col0),
+        padToWidth(c.primary(clip(sessionName, col1)), col1),
+        padToWidth(modeText, col2),
+        padToWidth(c.muted(clip(versionLabel, col3)), col3),
+      ];
+      const colValues = valueCells.join(` ${c.border("│")} `);
 
       const tagVis = visibleWidth(tagline);
-      const colValuesVis = visibleWidth(colValues);
       let row2 = "";
-      if (tagVis + colValuesVis + 2 <= available) {
-        row2 = tagline + " ".repeat(available - tagVis - colValuesVis) + colValues;
+      if (tagVis + rightWidth + 2 <= available) {
+        row2 = tagline + " ".repeat(available - tagVis - rightWidth) + colValues;
       } else {
-        const compactTag = ` ${c.muted("local-first practice coach")}`;
-        const compactVals = `${c.primary(workspaceName)} ${c.border("│")} ${modeText}`;
-        const cTagVis = visibleWidth(compactTag);
+        const compactVals = `${c.primary(clip(workspaceName, 12))} ${c.border("│")} ${modeText}`;
         const cValsVis = visibleWidth(compactVals);
-        if (cTagVis + cValsVis + 2 <= available) {
-          row2 = compactTag + " ".repeat(available - cTagVis - cValsVis) + compactVals;
+        if (tagVis + cValsVis + 2 <= available) {
+          row2 = tagline + " ".repeat(available - tagVis - cValsVis) + compactVals;
         } else {
-          row2 = clip(` ${c.muted("local-first practice coach")}`, available);
+          row2 = clip(tagline, available);
         }
       }
 
@@ -120,7 +145,7 @@ export function makeSidebar(model: ShellModel): Component {
             );
           } else {
             lines.push(
-              padToWidth(` ${c.muted("·")} ${c.primary(label)}`, innerWidth, c.sidebarBg),
+              padToWidth(` ${c.muted("●")} ${c.primary(label)}`, innerWidth, c.sidebarBg),
               padToWidth(`   ${c.muted(meta)}`, innerWidth, c.sidebarBg)
             );
           }
@@ -147,7 +172,7 @@ export function makeSidebar(model: ShellModel): Component {
             );
           } else {
             lines.push(
-              padToWidth(` ${c.muted("·")} ${c.primary(label)}`, innerWidth, c.sidebarBg),
+              padToWidth(` ${c.muted("●")} ${c.primary(label)}`, innerWidth, c.sidebarBg),
               padToWidth(`   ${c.muted(detail)}`, innerWidth, c.sidebarBg)
             );
           }
@@ -240,28 +265,33 @@ export function makeContext(model: ShellModel, unavailableReason?: string): Comp
       }
       lines.push(
         padToWidth(` ${c.accent("Objective")}`, innerWidth, c.appBg),
-        padToWidth(` ${model.activeGoal ? c.primary(clip(model.activeGoal, innerWidth - 3)) : c.muted("Empty · no active goal")}`, innerWidth, c.appBg),
+        padToWidth(`   ${model.activeGoal ? c.primary(clip(model.activeGoal, innerWidth - 4)) : c.muted("Empty · no active goal")}`, innerWidth, c.appBg),
         padToWidth(` ${c.accent("Current task")}`, innerWidth, c.appBg)
       );
 
       if (model.activeProblem) {
         lines.push(
-          padToWidth(` ${c.primary(clip(model.activeProblem.title, innerWidth - 3))}`, innerWidth, c.appBg),
-          padToWidth(` ${c.accent("Difficulty")} ${c.activeDot(c.bold(model.activeProblem.difficulty.toUpperCase()))} · ${c.muted(model.activeProblem.language)}`, innerWidth, c.appBg)
+          padToWidth(`   ${c.primary(clip(model.activeProblem.title, innerWidth - 4))}`, innerWidth, c.appBg),
+          padToWidth(` ${c.accent("Difficulty")}`, innerWidth, c.appBg),
+          padToWidth(`   ${c.activeDot(c.bold(model.activeProblem.difficulty.toUpperCase()))} · ${c.muted(model.activeProblem.language)}`, innerWidth, c.appBg)
         );
       } else {
-        lines.push(padToWidth(` ${c.muted("Empty · no active problem")}`, innerWidth, c.appBg));
+        lines.push(
+          padToWidth(`   ${c.muted("Empty · no active problem")}`, innerWidth, c.appBg),
+          padToWidth(` ${c.accent("Difficulty")}`, innerWidth, c.appBg),
+          padToWidth(`   ${c.muted("None")}`, innerWidth, c.appBg)
+        );
       }
 
       lines.push(
         padToWidth(` ${c.accent("Session time")}`, innerWidth, c.appBg),
         padToWidth(
-          ` ${model.activeSessionStartedAt ? c.primary(formatSessionElapsed(model.activeSessionStartedAt)) : c.muted("Not started")}`,
+          `   ${model.activeSessionStartedAt ? c.primary(formatSessionElapsed(model.activeSessionStartedAt)) : c.muted("Not started")}`,
           innerWidth,
           c.appBg
         ),
         padToWidth(` ${c.accent("Session ID")}`, innerWidth, c.appBg),
-        padToWidth(` ${c.muted(clip(model.sessionLabel, innerWidth - 3))}`, innerWidth, c.appBg)
+        padToWidth(`   ${c.muted(clip(model.sessionLabel, innerWidth - 4))}`, innerWidth, c.appBg)
       );
 
       // Section 2: WORKSPACE FILES

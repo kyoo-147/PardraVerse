@@ -222,4 +222,107 @@ describe("PardraVerse TUI Shell Geometry and Truthful Content", () => {
       expect(visibleWidth(line)).toBe(80);
     }
   });
+
+  it("validates wide layout (140x40 and 160x45) full shell assembly and readable geometry", async () => {
+    const state = emptyState();
+    state.problems.push({
+      id: "prefix",
+      title: "Warm-up: prefix sums",
+      topic: "arrays",
+      difficulty: "medium",
+      language: "javascript",
+      statement: "Scan array and accumulate sums.",
+      constraints: [],
+      tests: [],
+      createdAt: "2026-01-01",
+    });
+    state.activeSession = {
+      problemId: "prefix",
+      goal: "Practice prefix sums and array scan",
+      startedAt: "2026-01-01T00:00:00.000Z",
+    };
+    state.attempts.push({
+      id: "attempt-1",
+      problemId: "prefix",
+      at: "2026-01-01T00:14:00.000Z",
+      passed: 2,
+      total: 2,
+      durationMs: 4,
+      verdict: "accepted",
+    });
+
+    const model = await createShellModel(process.cwd(), {
+      state,
+      aiAvailable: true,
+      modelLabel: "local-practice-coach",
+    });
+
+    // Test 140x40 wide shell
+    const layout140 = computeShellLayout(140, 40);
+    expect(layout140.isWide).toBe(true);
+    expect(layout140.sidebarWidth).toBe(30);
+    expect(layout140.contextWidth).toBe(34);
+    expect(layout140.centerWidth).toBe(76);
+    expect(layout140.headerHeight).toBe(4);
+    expect(layout140.footerHeight).toBe(4);
+
+    const header140 = makeHeader(model).render(140);
+    expect(header140).toHaveLength(4);
+    for (const line of header140) expect(visibleWidth(line)).toBe(140);
+
+    const footer140 = makeFooter(model).render(140);
+    expect(footer140).toHaveLength(4);
+    for (const line of footer140) expect(visibleWidth(line)).toBe(140);
+
+    const middleHeight140 = 40 - 4 - 4; // 32
+    const sidebar140 = makeSidebar(model).render(30);
+    while (sidebar140.length < middleHeight140) {
+      sidebar140.splice(sidebar140.length - 1, 0, padToWidth(c.border("│") + " ".repeat(28) + c.border("│"), 30, c.sidebarBg));
+    }
+
+    const context140 = makeContext(model).render(34);
+    while (context140.length < middleHeight140) {
+      context140.splice(context140.length - 1, 0, padToWidth(c.border("│") + " ".repeat(32) + c.border("│"), 34, c.appBg));
+    }
+
+    const tab140 = makeTabs(model).render(76);
+    const transcript140: string[] = [];
+    while (transcript140.length < middleHeight140 - 3 - 3 - 1) {
+      transcript140.push(padToWidth("", 76, c.editorBg));
+    }
+    const composer140 = renderBoxFrame({
+      width: 76,
+      borderColor: (s) => c.borderFocus(s),
+      bgFn: c.editorBg,
+      lines: [` ${c.activeDot("💡")} ${c.primary("Type a message or command...")}`],
+    });
+    const status140 = padToWidth(`  ${c.muted("message or command · /help")}`, 76, c.editorBg);
+    const center140 = [...tab140, ...transcript140, ...composer140, status140];
+    expect(center140).toHaveLength(middleHeight140);
+
+    const middle140: string[] = [];
+    for (let i = 0; i < middleHeight140; i++) {
+      const row = (sidebar140[i] ?? "") + (center140[i] ?? "") + (context140[i] ?? "");
+      expect(visibleWidth(row)).toBe(140);
+      middle140.push(row);
+    }
+
+    const fullFrame140 = [...header140, ...middle140, ...footer140];
+    expect(fullFrame140).toHaveLength(40);
+    for (const row of fullFrame140) expect(visibleWidth(row)).toBe(140);
+
+    // Verify 160x45 wide shell
+    const layout160 = computeShellLayout(160, 45);
+    expect(layout160.isWide).toBe(true);
+    expect(layout160.centerWidth).toBe(96);
+    expect(layout160.centerHeight).toBe(45 - 4 - 3 - 3 - 1 - 4); // 30 rows
+
+    const header160 = makeHeader(model).render(160);
+    expect(header160).toHaveLength(4);
+    for (const line of header160) expect(visibleWidth(line)).toBe(160);
+
+    const footer160 = makeFooter(model).render(160);
+    expect(footer160).toHaveLength(4);
+    for (const line of footer160) expect(visibleWidth(line)).toBe(160);
+  });
 });
