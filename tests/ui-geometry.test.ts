@@ -233,6 +233,106 @@ describe("Boxed Components Rendering", () => {
     expect(plain).toMatch(/● Inactive problem/);
   });
 
+  it("always displays the active problem when it falls beyond the first five problems", async () => {
+    const state = emptyState();
+    for (let i = 1; i <= 7; i++) {
+      state.problems.push({
+        id: `prob-${i}`,
+        title: i === 6 ? "Warm-up: array scan" : `Problem ${i}`,
+        topic: "arrays",
+        difficulty: "easy",
+        language: "javascript",
+        statement: "",
+        constraints: [],
+        tests: [],
+        createdAt: "2026-01-01",
+      });
+    }
+    // Set 6th problem as active (index 5, outside first 5)
+    state.activeSession = { problemId: "prob-6", goal: "practice", startedAt: "2026-01-01T00:00:00.000Z" };
+    const model = await createShellModel(process.cwd(), { state, aiAvailable: false });
+    const sidebar = makeSidebar(model);
+    const rendered = sidebar.render(30).join("\n");
+
+    const { stripTerminalSequences } = await import("@earendil-works/pi-tui");
+    const plain = stripTerminalSequences(rendered);
+
+    // Active 6th problem MUST be visible in the navigator
+    expect(plain).toContain("Warm-up: array scan");
+    expect(plain).toMatch(/● Warm-up: array scan/);
+
+    // First 4 problems must be preserved in order
+    expect(plain).toContain("Problem 1");
+    expect(plain).toContain("Problem 2");
+    expect(plain).toContain("Problem 3");
+    expect(plain).toContain("Problem 4");
+
+    // 5th inactive problem is replaced by the 6th active problem, and 7th is omitted
+    expect(plain).not.toContain("Problem 5");
+    expect(plain).not.toContain("Problem 7");
+  });
+
+  it("preserves original problem ordering when active problem is within the first five", async () => {
+    const state = emptyState();
+    for (let i = 1; i <= 7; i++) {
+      state.problems.push({
+        id: `prob-${i}`,
+        title: `Problem ${i}`,
+        topic: "arrays",
+        difficulty: "easy",
+        language: "javascript",
+        statement: "",
+        constraints: [],
+        tests: [],
+        createdAt: "2026-01-01",
+      });
+    }
+    // Set 2nd problem as active (index 1, within first 5)
+    state.activeSession = { problemId: "prob-2", goal: "practice", startedAt: "2026-01-01T00:00:00.000Z" };
+    const model = await createShellModel(process.cwd(), { state, aiAvailable: false });
+    const sidebar = makeSidebar(model);
+    const rendered = sidebar.render(30).join("\n");
+
+    const { stripTerminalSequences } = await import("@earendil-works/pi-tui");
+    const plain = stripTerminalSequences(rendered);
+
+    expect(plain).toContain("Problem 1");
+    expect(plain).toContain("Problem 2");
+    expect(plain).toContain("Problem 3");
+    expect(plain).toContain("Problem 4");
+    expect(plain).toContain("Problem 5");
+    expect(plain).not.toContain("Problem 6");
+    expect(plain).not.toContain("Problem 7");
+  });
+
+  it("renders correctly when there are fewer than five problems or no active problem", async () => {
+    const state = emptyState();
+    for (let i = 1; i <= 6; i++) {
+      state.problems.push({
+        id: `prob-${i}`,
+        title: `Problem ${i}`,
+        topic: "arrays",
+        difficulty: "easy",
+        language: "javascript",
+        statement: "",
+        constraints: [],
+        tests: [],
+        createdAt: "2026-01-01",
+      });
+    }
+    // No active session/problem
+    const model = await createShellModel(process.cwd(), { state, aiAvailable: false });
+    const sidebar = makeSidebar(model);
+    const rendered = sidebar.render(30).join("\n");
+
+    const { stripTerminalSequences } = await import("@earendil-works/pi-tui");
+    const plain = stripTerminalSequences(rendered);
+
+    expect(plain).toContain("Problem 1");
+    expect(plain).toContain("Problem 5");
+    expect(plain).not.toContain("Problem 6");
+  });
+
   it("renders boxed session tabs without fake controls", async () => {
     const model = await createShellModel(process.cwd(), {
       state: emptyState(),

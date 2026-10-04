@@ -123,6 +123,20 @@ export function makeHeader(model: ShellModel): Component {
 }
 
 /**
+ * Window items to at most `max` rows. When an active item exists beyond the cutoff,
+ * include it by replacing the final slot while preserving original ordering for the
+ * preceding slots. Does not fabricate, duplicate, or mutate state.
+ */
+export function windowProblemItems<T extends { active?: boolean }>(items: T[], max = 5): T[] {
+  if (items.length <= max) return [...items];
+  const activeIndex = items.findIndex((item) => item.active);
+  if (activeIndex === -1 || activeIndex < max) {
+    return items.slice(0, max);
+  }
+  return [...items.slice(0, max - 1), items[activeIndex]!];
+}
+
+/**
  * Boxed Left Navigator Sidebar showing real Problems and real Sessions only
  */
 export function makeSidebar(model: ShellModel): Component {
@@ -134,7 +148,8 @@ export function makeSidebar(model: ShellModel): Component {
 
       // Section 1: PROBLEMS
       if (model.problemItems.length > 0) {
-        for (const problem of model.problemItems.slice(0, 5)) {
+        const visibleProblems = windowProblemItems(model.problemItems, 5);
+        for (const problem of visibleProblems) {
           const isActive = problem.active ?? false;
           const label = clip(problem.title, innerWidth - 6);
           const meta = clip(`${problem.difficulty} · ${problem.language}${problem.topic ? ` · ${problem.topic}` : ""}`, innerWidth - 6);
@@ -161,7 +176,8 @@ export function makeSidebar(model: ShellModel): Component {
       lines.push(renderDivider(width, "SESSIONS", undefined, { borderColor: c.border, bgFn: c.sidebarBg }));
       const hasRealSessions = model.sessionItems.length > 0 && model.sessionItems[0]?.id !== "empty";
       if (hasRealSessions) {
-        for (const session of model.sessionItems.slice(0, 5)) {
+        const visibleSessions = windowProblemItems(model.sessionItems, 5);
+        for (const session of visibleSessions) {
           const isActive = session.active ?? false;
           const label = clip(session.label, innerWidth - 6);
           const detail = clip(session.detail, innerWidth - 6);
