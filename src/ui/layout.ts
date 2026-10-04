@@ -9,6 +9,7 @@ export interface ShellLayoutGeometry {
   headerHeight: number;
   tabsHeight: number;
   composerHeight: number;
+  statusHeight: number;
   footerHeight: number;
   sidebarWidth: number;
   contextWidth: number;
@@ -25,8 +26,8 @@ export function computeShellLayout(width: number, height: number): ShellLayoutGe
   let contextWidth = 0;
 
   if (isWide) {
-    sidebarWidth = 26;
-    contextWidth = 32;
+    sidebarWidth = 30;
+    contextWidth = 34;
   } else if (isMedium) {
     sidebarWidth = 24;
     contextWidth = 0;
@@ -36,11 +37,12 @@ export function computeShellLayout(width: number, height: number): ShellLayoutGe
   }
 
   const centerWidth = Math.max(1, width - sidebarWidth - contextWidth);
-  const headerHeight = 3;
+  const headerHeight = width < 96 ? 3 : 4;
   const tabsHeight = 3;
   const composerHeight = 3;
-  const footerHeight = 3;
-  const centerHeight = Math.max(1, height - headerHeight - tabsHeight - composerHeight - footerHeight);
+  const statusHeight = 1;
+  const footerHeight = width < 96 ? 3 : 4;
+  const centerHeight = Math.max(1, height - headerHeight - tabsHeight - composerHeight - statusHeight - footerHeight);
 
   return {
     width,
@@ -50,6 +52,7 @@ export function computeShellLayout(width: number, height: number): ShellLayoutGe
     headerHeight,
     tabsHeight,
     composerHeight,
+    statusHeight,
     footerHeight,
     sidebarWidth,
     contextWidth,

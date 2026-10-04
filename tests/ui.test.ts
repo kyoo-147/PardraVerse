@@ -17,7 +17,8 @@ describe("PardraVerse TUI view model", () => {
     expect(model.mode).toBe("local-only");
     expect(model.sessionItems).toHaveLength(1);
     expect(model.sessionItems[0]?.label).toMatch(/^[0-9a-f]{8}$/);
-    expect(model.agentItems).toEqual(["Unavailable · AI provider"]);
+    expect(model.problemItems).toEqual([]);
+    expect(model.version).toMatch(/^v\d+\.\d+\.\d+/);
     expect(model.lastAttempt).toBeUndefined();
   });
 
@@ -34,7 +35,32 @@ describe("PardraVerse TUI view model", () => {
     expect(model.sessionLabel).toBe("Prefix practice");
     expect(model.activeProblem?.title).toBe("Prefix sums");
     expect(model.lastAttempt?.verdict).toBe("accepted");
-    expect(model.agentItems).toEqual(["configured practice coach"]);
+    expect(model.problemItems[0]?.active).toBe(true);
+    expect(model.attemptsCount).toBe(1);
+    expect(model.acceptedCount).toBe(1);
+  });
+
+  it("scopes attempt counts to the active problem", async () => {
+    const state = emptyState();
+    state.problems.push(
+      { id: "active", title: "Active", topic: "arrays", difficulty: "easy", language: "javascript", statement: "", constraints: [], tests: [], createdAt: "2026-01-01" },
+      { id: "other", title: "Other", topic: "graphs", difficulty: "hard", language: "python", statement: "", constraints: [], tests: [], createdAt: "2026-01-01" }
+    );
+    state.activeSession = { problemId: "active", goal: "practice", startedAt: "2026-01-01T00:00:00.000Z" };
+    state.attempts.push(
+      { id: "a", problemId: "active", at: "2026-01-01T00:01:00.000Z", passed: 1, total: 1, durationMs: 4, verdict: "accepted" },
+      { id: "b", problemId: "other", at: "2026-01-01T00:02:00.000Z", passed: 0, total: 1, durationMs: 4, verdict: "wrong-answer" }
+    );
+    const model = await createShellModel(await root(), { state, aiAvailable: false });
+    expect(model.attemptsCount).toBe(1);
+    expect(model.acceptedCount).toBe(1);
+    expect(model.lastAttempt?.problemId).toBe("active");
+  });
+
+  it("formats a deterministic session timer", async () => {
+    const { formatSessionElapsed } = await import("../src/ui/shell.js");
+    expect(formatSessionElapsed("2026-01-01T00:00:00.000Z", Date.parse("2026-01-01T01:02:03.000Z"))).toBe("01:02:03");
+    expect(formatSessionElapsed("not-a-date", 0)).toBe("Unavailable");
   });
 
   it("extracts text blocks without speaker headings", () => {

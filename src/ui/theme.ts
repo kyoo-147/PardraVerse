@@ -72,30 +72,36 @@ export function bgAnsi(hex: string): string {
   return `\x1b[48;2;${r};${g};${b}m`;
 }
 
-export const ANSI_RESET = "\x1b[0m";
+function foreground(hex: string, text: string): string {
+  return `${fgAnsi(hex)}${text}\x1b[39m`;
+}
+
+function background(hex: string, text: string): string {
+  return `${bgAnsi(hex)}${text}\x1b[49m`;
+}
 
 export const c = {
-  appBg: (text: string) => `${bgAnsi(theme.colors.background.app)}${text}${ANSI_RESET}`,
-  editorBg: (text: string) => `${bgAnsi(theme.colors.background.editor)}${text}${ANSI_RESET}`,
-  sidebarBg: (text: string) => `${bgAnsi(theme.colors.background.sidebar)}${text}${ANSI_RESET}`,
-  selectedBg: (text: string) => `${bgAnsi(theme.colors.surface.selected)}${text}${ANSI_RESET}`,
-  primary: (text: string) => `${fgAnsi(theme.colors.text.primary)}${text}${ANSI_RESET}`,
-  terminal: (text: string) => `${fgAnsi(theme.colors.text.terminal)}${text}${ANSI_RESET}`,
-  secondary: (text: string) => `${fgAnsi(theme.colors.text.secondary)}${text}${ANSI_RESET}`,
-  muted: (text: string) => `${fgAnsi(theme.colors.text.muted)}${text}${ANSI_RESET}`,
-  strong: (text: string) => `${fgAnsi(theme.colors.text.strong)}${text}${ANSI_RESET}`,
-  accent: (text: string) => `${fgAnsi(theme.colors.accent.DEFAULT)}${text}${ANSI_RESET}`,
-  accentStrong: (text: string) => `${fgAnsi(theme.colors.accent.strong)}${text}${ANSI_RESET}`,
-  border: (text: string) => `${fgAnsi(theme.colors.border.DEFAULT)}${text}${ANSI_RESET}`,
-  borderSubtle: (text: string) => `${fgAnsi(theme.colors.border.subtle)}${text}${ANSI_RESET}`,
-  borderFocus: (text: string) => `${fgAnsi(theme.colors.border.focus)}${text}${ANSI_RESET}`,
-  activeDot: (text: string) => `${fgAnsi(theme.colors.status.active)}${text}${ANSI_RESET}`,
-  successDot: (text: string) => `${fgAnsi(theme.colors.status.success)}${text}${ANSI_RESET}`,
-  infoDot: (text: string) => `${fgAnsi(theme.colors.status.info)}${text}${ANSI_RESET}`,
-  warningDot: (text: string) => `${fgAnsi(theme.colors.status.warning)}${text}${ANSI_RESET}`,
-  errorDot: (text: string) => `${fgAnsi(theme.colors.status.error)}${text}${ANSI_RESET}`,
-  bold: (text: string) => `\x1b[1m${text}${ANSI_RESET}`,
-  dim: (text: string) => `\x1b[2m${text}${ANSI_RESET}`,
+  appBg: (text: string) => background(theme.colors.background.app, text),
+  editorBg: (text: string) => background(theme.colors.background.editor, text),
+  sidebarBg: (text: string) => background(theme.colors.background.sidebar, text),
+  selectedBg: (text: string) => background(theme.colors.surface.selected, text),
+  primary: (text: string) => foreground(theme.colors.text.primary, text),
+  terminal: (text: string) => foreground(theme.colors.text.terminal, text),
+  secondary: (text: string) => foreground(theme.colors.text.secondary, text),
+  muted: (text: string) => foreground(theme.colors.text.muted, text),
+  strong: (text: string) => foreground(theme.colors.text.strong, text),
+  accent: (text: string) => foreground(theme.colors.accent.DEFAULT, text),
+  accentStrong: (text: string) => foreground(theme.colors.accent.strong, text),
+  border: (text: string) => foreground(theme.colors.border.DEFAULT, text),
+  borderSubtle: (text: string) => foreground(theme.colors.border.subtle, text),
+  borderFocus: (text: string) => foreground(theme.colors.border.focus, text),
+  activeDot: (text: string) => foreground(theme.colors.status.active, text),
+  successDot: (text: string) => foreground(theme.colors.status.success, text),
+  infoDot: (text: string) => foreground(theme.colors.status.info, text),
+  warningDot: (text: string) => foreground(theme.colors.status.warning, text),
+  errorDot: (text: string) => foreground(theme.colors.status.error, text),
+  bold: (text: string) => `\x1b[1m${text}\x1b[22m`,
+  dim: (text: string) => `\x1b[2m${text}\x1b[22m`,
 };
 
 export class TerminalThemeManager {

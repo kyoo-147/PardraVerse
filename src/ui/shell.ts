@@ -29,7 +29,7 @@ export function makeHeader(model: ShellModel): Component {
       const modeText = c.accentStrong(c.bold(model.modeLabel));
       const versionLabel = model.version || "dev";
 
-      if (width < 80) {
+      if (width < 96) {
         // Compact single-line header
         const line = ` ${c.accentStrong(c.bold("PARDRAVERSE"))} ${c.muted(workspaceName)} · ${modeText}`;
         return renderBoxFrame({
@@ -107,7 +107,7 @@ export function makeSidebar(model: ShellModel): Component {
       const innerWidth = Math.max(1, width - 2);
       const lines: string[] = [];
 
-      // Section 1: PROBLEMS +
+      // Section 1: PROBLEMS
       if (model.problemItems.length > 0) {
         for (const problem of model.problemItems.slice(0, 5)) {
           const isActive = problem.active ?? false;
@@ -128,12 +128,12 @@ export function makeSidebar(model: ShellModel): Component {
       } else {
         lines.push(
           padToWidth(`   ${c.muted("Empty · no problems")}`, innerWidth, c.sidebarBg),
-          padToWidth(`   ${c.muted("Run prac list or add a problem")}`, innerWidth, c.sidebarBg)
+          padToWidth(`   ${c.muted("Use prac problem create")}`, innerWidth, c.sidebarBg)
         );
       }
 
-      // Section 2: SESSIONS +
-      lines.push(renderDivider(width, "SESSIONS", "+", { borderColor: c.border, bgFn: c.sidebarBg }));
+      // Section 2: SESSIONS
+      lines.push(renderDivider(width, "SESSIONS", undefined, { borderColor: c.border, bgFn: c.sidebarBg }));
       const hasRealSessions = model.sessionItems.length > 0 && model.sessionItems[0]?.id !== "empty";
       if (hasRealSessions) {
         for (const session of model.sessionItems.slice(0, 5)) {
@@ -162,7 +162,6 @@ export function makeSidebar(model: ShellModel): Component {
       return renderBoxFrame({
         width,
         title: "PROBLEMS",
-        rightBadge: "+",
         borderColor: c.border,
         bgFn: c.sidebarBg,
         lines,
@@ -204,20 +203,13 @@ export function makeTabs(model: ShellModel): Component {
       for (const tab of tabs) {
         const borderFn = tab.active ? c.borderFocus : c.border;
         const textFn = tab.active ? (s: string) => c.accentStrong(c.bold(s)) : c.muted;
-        const closeFn = tab.active ? c.accent : c.muted;
-        const labelText = `${textFn(tab.label)}  ${closeFn("×")}`;
+        const labelText = textFn(tab.label);
         const innerLen = visibleWidth(labelText) + 2;
 
         topRowParts.push(borderFn("╭" + "─".repeat(innerLen) + "╮"));
         midRowParts.push(borderFn("│ ") + labelText + borderFn(" │"));
         botRowParts.push(borderFn("╰" + "─".repeat(innerLen) + "╯"));
       }
-
-      // Add "+" new tab button
-      const plusBorder = c.border;
-      topRowParts.push(plusBorder("╭───╮"));
-      midRowParts.push(plusBorder("│ ") + c.muted("+") + plusBorder(" │"));
-      botRowParts.push(plusBorder("╰───╯"));
 
       const topCombined = topRowParts.join(" ");
       const midCombined = midRowParts.join(" ");
@@ -262,9 +254,9 @@ export function makeContext(model: ShellModel, unavailableReason?: string): Comp
       }
 
       lines.push(
-        padToWidth(` ${c.accent("Started")}`, innerWidth, c.appBg),
+        padToWidth(` ${c.accent("Session time")}`, innerWidth, c.appBg),
         padToWidth(
-          ` ${model.activeSessionStartedAt ? c.primary(formatStartedTime(model.activeSessionStartedAt)) : c.muted("Empty · no active session")}`,
+          ` ${model.activeSessionStartedAt ? c.primary(formatSessionElapsed(model.activeSessionStartedAt)) : c.muted("Not started")}`,
           innerWidth,
           c.appBg
         ),
@@ -301,7 +293,7 @@ export function makeContext(model: ShellModel, unavailableReason?: string): Comp
       }
 
       // Section 4: NOTES & SOURCES
-      lines.push(renderDivider(width, "NOTES", undefined, { borderColor: c.border, bgFn: c.appBg }));
+      lines.push(renderDivider(width, "NOTES / SOURCES", undefined, { borderColor: c.border, bgFn: c.appBg }));
       if (model.sources.length > 0) {
         for (const source of model.sources.slice(0, 3)) {
           lines.push(padToWidth(`   ${c.primary(clip("· " + (source.title ?? source.url ?? source.id), innerWidth - 5))}`, innerWidth, c.appBg));
@@ -321,24 +313,21 @@ export function makeContext(model: ShellModel, unavailableReason?: string): Comp
   };
 }
 
-function formatStartedTime(isoString: string): string {
+export function formatSessionElapsed(isoString: string, now = Date.now()): string {
   const parsed = new Date(isoString).getTime();
-  if (!Number.isFinite(parsed)) return isoString;
-  const elapsedMs = Date.now() - parsed;
-  if (elapsedMs < 60_000) return "just now";
-  const mins = Math.floor(elapsedMs / 60_000);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  if (!Number.isFinite(parsed)) return "Unavailable";
+  const elapsedSeconds = Math.max(0, Math.floor((now - parsed) / 1_000));
+  const hours = Math.floor(elapsedSeconds / 3_600);
+  const minutes = Math.floor((elapsedSeconds % 3_600) / 60);
+  const seconds = elapsedSeconds % 60;
+  return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
 }
 
 /**
  * Status message bar
  */
 export function makeStatus(status: string): Text {
-  return new Text(c.muted(`  ${status || "ready"}`), 1, 0);
+  return new Text(c.muted(`  ${status || "message or command · /help"}`), 1, 0);
 }
 
 /**
@@ -350,7 +339,7 @@ export function makeFooter(model?: ShellModel): Component {
     render(width: number): string[] {
       const versionText = model?.version ? `  ${c.muted(model.version)}  ${c.border("·")}` : "";
       const leftPart = `${c.strong(c.bold("PARDRAVERSE"))}${versionText}  ${c.secondary("local-first practice coach")}`;
-      const commandsPart = `${c.muted("/help commands")}  ${c.border("·")}  ${c.muted("/new session")}  ${c.border("·")}  ${c.muted("/sessions")}  ${c.border("·")}  ${c.muted("/open <id>")}  ${c.border("·")}  ${c.muted("/quit exit")}  ${c.border("·")}  ${c.muted("Ctrl+C stop")}`;
+      const commandsPart = `${c.muted("/help")}  ${c.border("·")}  ${c.muted("/new [title]")}  ${c.border("·")}  ${c.muted("/sessions")}  ${c.border("·")}  ${c.muted("/open <id>")}  ${c.border("·")}  ${c.muted("/quit")}  ${c.border("·")}  ${c.muted("Ctrl+C stop")}`;
 
       const modeText = model?.modeLabel ? `${c.muted("mode:")} ${c.accentStrong(model.modeLabel)}` : "";
       const modelText = model?.modelLabel ? `${c.muted("model:")} ${c.primary(clip(model.modelLabel, 16))}` : "";

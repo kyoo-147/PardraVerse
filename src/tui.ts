@@ -23,7 +23,7 @@ import { answerOffline } from "./offline-chat.js";
 import { PracticeWorkspace } from "./practice.js";
 import { contentText, createShellModel, formatTurnTime } from "./ui/view-model.js";
 import { makeContext, makeFooter, makeHeader, makeSidebar, makeStatus, makeTabs } from "./ui/shell.js";
-import { c, theme, fgAnsi, bgAnsi, ANSI_RESET, TerminalThemeManager } from "./ui/theme.js";
+import { c, theme, fgAnsi, bgAnsi, TerminalThemeManager } from "./ui/theme.js";
 
 const selectTheme: SelectListTheme = {
   selectedPrefix: (text) => c.accent(text),
@@ -37,33 +37,23 @@ const markdownTheme: MarkdownTheme = {
   heading: (text) => c.bold(c.strong(text)),
   link: (text) => c.accent(text),
   linkUrl: (text) => c.muted(text),
-  code: (text) => `${fgAnsi(theme.colors.accent.strong)}${bgAnsi(theme.colors.surface.code)}${text}${ANSI_RESET}`,
-  codeBlock: (text) => `${fgAnsi(theme.colors.text.terminal)}${text}${ANSI_RESET}`,
+  code: (text) => `${fgAnsi(theme.colors.accent.strong)}${bgAnsi(theme.colors.surface.code)}${text}\x1b[39m${bgAnsi(theme.colors.background.editor)}`,
+  codeBlock: (text) => `${fgAnsi(theme.colors.text.terminal)}${text}\x1b[39m`,
   codeBlockBorder: (text) => c.border(text),
   quote: (text) => c.secondary(text),
   quoteBorder: (text) => c.accent(text),
   hr: (text) => c.border(text),
   listBullet: (text) => c.accent(text),
   bold: (text) => c.bold(text),
-  italic: (text) => `\x1b[3m${text}${ANSI_RESET}`,
-  strikethrough: (text) => `\x1b[9m${text}${ANSI_RESET}`,
-  underline: (text) => `\x1b[4m${text}${ANSI_RESET}`,
+  italic: (text) => `\x1b[3m${text}\x1b[23m`,
+  strikethrough: (text) => `\x1b[9m${text}\x1b[29m`,
+  underline: (text) => `\x1b[4m${text}\x1b[24m`,
 };
 
 export async function launchChat(root = process.cwd()): Promise<void> {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     throw new Error("Interactive chat needs a terminal. Use the explicit prac commands in scripts or CI.");
   }
-
-  // Manage terminal emulator default colors with safe restoration
-  const themeManager = new TerminalThemeManager(process.stdout);
-  themeManager.applyTheme();
-  const restoreThemeHandler = (): void => {
-    themeManager.restoreTheme();
-  };
-  process.once("exit", restoreThemeHandler);
-  process.once("SIGINT", restoreThemeHandler);
-  process.once("SIGTERM", restoreThemeHandler);
 
   const workspace = new PracticeWorkspace(root);
   await workspace.ensure();
@@ -88,6 +78,20 @@ export async function launchChat(root = process.cwd()): Promise<void> {
 
   const terminal = new ProcessTerminal();
   const tui = new TuiAltScreen(terminal);
+  const themeManager = new TerminalThemeManager(terminal);
+  const restoreThemeHandler = (): void => themeManager.restoreTheme();
+  const terminate = (code: number): void => {
+    try {
+      tui.stop();
+    } finally {
+      themeManager.restoreTheme();
+      process.exit(code);
+    }
+  };
+  process.once("exit", restoreThemeHandler);
+  process.once("SIGINT", () => terminate(130));
+  process.once("SIGTERM", () => terminate(143));
+  themeManager.applyTheme();
   const transcript = new Container();
   const status = makeStatus("");
   const editor = new Editor(tui, { borderColor: (s) => c.borderFocus(s), selectList: selectTheme }, { paddingX: 1 });
@@ -103,7 +107,7 @@ export async function launchChat(root = process.cwd()): Promise<void> {
     ]);
 
     const main = new HStack([
-      { component: makeSidebar(model), basis: 26, minSize: 22, maxSize: 30, visible: (viewport) => viewport.width >= 96 },
+      { component: makeSidebar(model), basis: 30, minSize: 26, maxSize: 34, visible: (viewport) => viewport.width >= 96 },
       { component: center, basis: 0, grow: 1, minSize: 34 },
       {
         component: makeContext(
@@ -114,9 +118,9 @@ export async function launchChat(root = process.cwd()): Promise<void> {
               : "AI unavailable: local actions only"
             : undefined
         ),
-        basis: 32,
-        minSize: 26,
-        maxSize: 38,
+        basis: 34,
+        minSize: 30,
+        maxSize: 40,
         visible: (viewport) => viewport.width >= 110,
       },
     ]);
@@ -349,8 +353,15 @@ export async function launchChat(root = process.cwd()): Promise<void> {
   });
 
   await chatStore.event("ui.opened", { mode: runtime ? "ai" : "local", model: runtime?.modelLabel });
-  tui.start();
-  await exited;
+  const clock = setInterval(() => tui.requestRender(), 1_000);
+  clock.unref();
+  try {
+    tui.start();
+    await exited;
+  } finally {
+    clearInterval(clock);
+    themeManager.restoreTheme();
+  }
 }
 
 function renderWelcome(container: Container, aiEnabled: boolean, offlineReason: string): void {

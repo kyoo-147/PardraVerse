@@ -1,3 +1,4 @@
+import packageJson from "../../package.json" with { type: "json" };
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Attempt, PracState, SourceRecord } from "../types.js";
@@ -31,8 +32,6 @@ export interface ShellModel {
   sessionLabel: string;
   problemItems: ProblemRecord[];
   sessionItems: SessionRecord[];
-  workspaceItems: string[];
-  agentItems: string[];
   activeGoal?: string;
   activeProblem?: { id: string; title: string; difficulty: string; language: string };
   activeSessionStartedAt?: string;
@@ -48,20 +47,6 @@ function sessionLabel(session: Pick<SessionSummary, "id" | "title" | "goal" | "p
   return session.title ?? session.goal ?? session.problem ?? session.id.slice(0, 8);
 }
 
-async function loadVersion(root: string): Promise<string> {
-  const tryPaths = [
-    path.join(root, "package.json"),
-    path.resolve(process.cwd(), "package.json"),
-  ];
-  for (const pkgPath of tryPaths) {
-    try {
-      const content = await readFile(pkgPath, "utf8");
-      const parsed = JSON.parse(content) as { version?: unknown };
-      if (typeof parsed.version === "string") return `v${parsed.version}`;
-    } catch {}
-  }
-  return "";
-}
 
 async function boundedFiles(root: string, directory: string): Promise<string[]> {
   const entries = await readdir(path.join(root, directory), { withFileTypes: true }).catch(() => []);
@@ -92,7 +77,7 @@ export async function createShellModel(
 ): Promise<ShellModel> {
   const absoluteRoot = path.resolve(root);
   const state = options.state;
-  const version = await loadVersion(absoluteRoot);
+  const version = `v${packageJson.version}`;
   const mode: ShellMode = state.contestMode ? "contest" : options.aiAvailable ? "practice" : "local-only";
   const sessionStore = options.sessions ?? new SessionStore(absoluteRoot);
   const history = await sessionStore.list();
@@ -124,9 +109,12 @@ export async function createShellModel(
     active: p.id === state.activeSession?.problemId,
   }));
 
-  const attempt = state.attempts.length ? state.attempts[state.attempts.length - 1] : undefined;
-  const attemptsCount = state.attempts.length;
-  const acceptedCount = state.attempts.filter((a) => a.verdict === "accepted").length;
+  const relevantAttempts = problem
+    ? state.attempts.filter((attempt) => attempt.problemId === problem.id)
+    : state.attempts;
+  const attempt = relevantAttempts.length ? relevantAttempts[relevantAttempts.length - 1] : undefined;
+  const attemptsCount = relevantAttempts.length;
+  const acceptedCount = relevantAttempts.filter((item) => item.verdict === "accepted").length;
 
   const sources: SourceRecord[] = [...state.sources];
 
@@ -140,8 +128,6 @@ export async function createShellModel(
     sessionLabel: sessionLabel(activeConversation),
     problemItems: problemRecords,
     sessionItems: sessions.length ? sessions.slice(0, 12) : [{ id: "empty", label: "Empty · no sessions", detail: "start a conversation" }],
-    workspaceItems: [path.basename(absoluteRoot) || absoluteRoot, `state · ${state.problems.length} problem${state.problems.length === 1 ? "" : "s"}`, ...files],
-    agentItems: options.aiAvailable ? ["configured practice coach"] : ["Unavailable · AI provider"],
     activeGoal: state.activeSession?.goal,
     activeProblem: problem && { id: problem.id, title: problem.title, difficulty: problem.difficulty, language: problem.language },
     activeSessionStartedAt: state.activeSession?.startedAt,

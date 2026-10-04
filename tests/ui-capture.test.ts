@@ -13,9 +13,9 @@ describe("PardraVerse TUI Shell Geometry and Truthful Content", () => {
     expect(layout.height).toBe(40);
     expect(layout.isWide).toBe(true);
     expect(layout.isCompact).toBe(false);
-    expect(layout.sidebarWidth).toBe(26);
-    expect(layout.contextWidth).toBe(32);
-    expect(layout.centerWidth).toBe(62);
+    expect(layout.sidebarWidth).toBe(30);
+    expect(layout.contextWidth).toBe(34);
+    expect(layout.centerWidth).toBe(56);
 
     const state = emptyState();
     state.topics.push({ id: "arrays", name: "Arrays", description: "", createdAt: "2026-01-01" });
@@ -75,42 +75,43 @@ describe("PardraVerse TUI Shell Geometry and Truthful Content", () => {
     // 3. Middle section (40 - 4 - 4 = 32 lines)
     const middleHeight = 32;
 
-    // Left Navigator: width 26
-    const sidebarLines = makeSidebar(model).render(26);
+    // Left Navigator: width 30
+    const sidebarLines = makeSidebar(model).render(30);
     while (sidebarLines.length < middleHeight) {
-      sidebarLines.splice(sidebarLines.length - 1, 0, padToWidth(c.border("│") + " ".repeat(24) + c.border("│"), 26, c.sidebarBg));
+      sidebarLines.splice(sidebarLines.length - 1, 0, padToWidth(c.border("│") + " ".repeat(28) + c.border("│"), 30, c.sidebarBg));
     }
     expect(sidebarLines).toHaveLength(middleHeight);
 
-    // Right Context: width 32
-    const contextLines = makeContext(model).render(32);
+    // Right Context: width 34
+    const contextLines = makeContext(model).render(34);
     while (contextLines.length < middleHeight) {
-      contextLines.splice(contextLines.length - 1, 0, padToWidth(c.border("│") + " ".repeat(30) + c.border("│"), 32, c.appBg));
+      contextLines.splice(contextLines.length - 1, 0, padToWidth(c.border("│") + " ".repeat(32) + c.border("│"), 34, c.appBg));
     }
     expect(contextLines).toHaveLength(middleHeight);
 
-    // Center Column: width 62 (Tabs: 3, Transcript: 26, Composer: 3)
-    const tabLines = makeTabs(model).render(62);
+    // Center Column: width 56 (Tabs: 3, Transcript: 25, Composer: 3, Status: 1)
+    const tabLines = makeTabs(model).render(56);
     expect(tabLines).toHaveLength(3);
 
     const composerBox = renderBoxFrame({
-      width: 62,
+      width: 56,
       borderColor: (s) => c.borderFocus(s),
       bgFn: c.editorBg,
       lines: [` ${c.activeDot("💡")} ${c.primary("Type a message or command...")} ${c.muted("(Ctrl+C to stop)")}`],
     });
     expect(composerBox).toHaveLength(3);
 
-    const transcriptHeight = middleHeight - 3 - 3;
+    const transcriptHeight = middleHeight - 3 - 3 - 1;
     const transcriptLines: string[] = [];
     while (transcriptLines.length < transcriptHeight) {
-      transcriptLines.push(padToWidth("", 62, c.editorBg));
+      transcriptLines.push(padToWidth("", 56, c.editorBg));
     }
 
-    const centerLines = [...tabLines, ...transcriptLines, ...composerBox];
+    const statusLine = padToWidth(`  ${c.muted("message or command · /help")}`, 56, c.editorBg);
+    const centerLines = [...tabLines, ...transcriptLines, ...composerBox, statusLine];
     expect(centerLines).toHaveLength(middleHeight);
 
-    // Combine 3 columns horizontally: 26 + 62 + 32 = 120
+    // Combine 3 columns horizontally: 30 + 56 + 34 = 120
     const middleLines: string[] = [];
     for (let i = 0; i < middleHeight; i++) {
       const row = (sidebarLines[i] ?? "") + (centerLines[i] ?? "") + (contextLines[i] ?? "");
@@ -178,20 +179,20 @@ describe("PardraVerse TUI Shell Geometry and Truthful Content", () => {
     expect(context).toContain("SESSION CONTEXT");
     expect(context).toContain("Empty · no active goal");
     expect(context).toContain("Empty · no active problem");
-    expect(context).toContain("Empty · no active session");
+    expect(context).toContain("Not started");
     expect(context).toContain("Empty · no attempts");
     expect(context).toContain("Empty · no notes or sources");
     expect(context).not.toContain("watching for file changes");
     expect(context).not.toContain("focus on core patterns");
 
     const tabs = makeTabs(model).render(60).join("\n");
-    expect(tabs).toContain("×");
-    expect(tabs).toContain("+");
+    expect(tabs).not.toContain("×");
+    expect(tabs).not.toContain("+");
 
     const footer = makeFooter(model).render(100).join("\n");
     expect(footer).toContain("PARDRAVERSE");
-    expect(footer).toContain("/help commands");
-    expect(footer).toContain("/new session");
+    expect(footer).toContain("/help");
+    expect(footer).toContain("/new [title]");
     expect(footer).toContain("/sessions");
     expect(footer).not.toContain("/agents");
     expect(footer).not.toContain("Ctrl+L");

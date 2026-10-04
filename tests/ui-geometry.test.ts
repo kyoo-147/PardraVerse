@@ -70,14 +70,15 @@ describe("Pure Layout Engine Geometry", () => {
     const layout = computeShellLayout(120, 40);
     expect(layout.isWide).toBe(true);
     expect(layout.isCompact).toBe(false);
-    expect(layout.sidebarWidth).toBe(26);
-    expect(layout.contextWidth).toBe(32);
-    expect(layout.centerWidth).toBe(120 - 26 - 32); // 62 cols: generous readable width
-    expect(layout.headerHeight).toBe(3);
+    expect(layout.sidebarWidth).toBe(30);
+    expect(layout.contextWidth).toBe(34);
+    expect(layout.centerWidth).toBe(120 - 30 - 34); // 56 cols: readable transcript width
+    expect(layout.headerHeight).toBe(4);
     expect(layout.tabsHeight).toBe(3);
     expect(layout.composerHeight).toBe(3);
-    expect(layout.footerHeight).toBe(3);
-    expect(layout.centerHeight).toBe(40 - 3 - 3 - 3 - 3); // 28 rows of transcript
+    expect(layout.statusHeight).toBe(1);
+    expect(layout.footerHeight).toBe(4);
+    expect(layout.centerHeight).toBe(40 - 4 - 3 - 3 - 1 - 4); // 25 rows of transcript
   });
 
   it("handles intentional compact mode below breakpoint (< 96 cols)", () => {
@@ -87,6 +88,8 @@ describe("Pure Layout Engine Geometry", () => {
     expect(layout.sidebarWidth).toBe(0);
     expect(layout.contextWidth).toBe(0);
     expect(layout.centerWidth).toBe(80);
+    expect(layout.headerHeight).toBe(3);
+    expect(layout.footerHeight).toBe(3);
   });
 
   it("renders thin boxed frames with consistent width and box characters", () => {
@@ -149,7 +152,7 @@ describe("Boxed Components Rendering", () => {
     }
   });
 
-  it("renders boxed session tabs with close buttons", async () => {
+  it("renders boxed session tabs without fake controls", async () => {
     const model = await createShellModel(process.cwd(), {
       state: emptyState(),
       aiAvailable: true,
@@ -157,8 +160,9 @@ describe("Boxed Components Rendering", () => {
     const tabs = makeTabs(model);
     const lines = tabs.render(62);
     const joined = lines.join("\n");
-    expect(joined).toContain("×");
-    expect(joined).toContain("+");
+    expect(lines).toHaveLength(3);
+    expect(joined).not.toContain("×");
+    expect(joined).not.toContain("+");
   });
 
   it("renders boxed context with state-backed data and truthful empty states", async () => {
@@ -191,8 +195,8 @@ describe("Boxed Components Rendering", () => {
     const lines = footer.render(120);
     const joined = lines.join("\n");
     expect(joined).toContain("PARDRAVERSE");
-    expect(joined).toContain("/help commands");
-    expect(joined).toContain("/new session");
+    expect(joined).toContain("/help");
+    expect(joined).toContain("/new [title]");
     expect(joined).toContain("/sessions");
     expect(joined).not.toContain("Ctrl+L");
     expect(joined).not.toContain("/agents");
