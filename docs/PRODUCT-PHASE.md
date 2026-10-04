@@ -2,7 +2,7 @@
 
 Status: accepted product direction for the current MVP phase  
 Last reviewed: 2026-10-03  
-Evidence baseline: repository `main` at `117cb97` plus the current local runtime  
+Evidence baseline: repository `main` through the cream-shell implementation at `07fbdf1`, plus live terminal validation
 Herdr reference baseline: `herdrdev/herdr` at `5da0a01e`
 
 ## Product definition
@@ -191,12 +191,13 @@ They should remain distinct in storage and be presented together coherently in t
 
 The next implementation work should be ordered by the learner workflow, not infrastructure novelty:
 
-1. Make the real TUI match the approved pane-based visual contract and remain readable at practical terminal widths.
-2. Complete one coherent loop: choose/create problem -> inspect statement/tests -> edit real file -> run -> review evidence -> reflect.
-3. Add structured failure categories and attempt comparison.
-4. Add topic progress and a review queue from actual failures.
-5. Add problem import as a reviewed transformation, never an automatic scrape-and-trust path.
-6. Add an isolated runner before accepting untrusted code.
+The approved cream pane shell is now implemented and live-validated at wide width. It projects real Problems, Sessions, practice context, files, attempts, sources, runtime mode, and provider state; compact mode intentionally removes secondary panes.
+
+1. Complete one coherent loop: choose/create problem -> inspect statement/tests -> edit real file -> run -> review evidence -> reflect.
+2. Add structured failure categories and attempt comparison.
+3. Add topic progress and a review queue from actual failures.
+4. Add problem import as a reviewed transformation, never an automatic scrape-and-trust path.
+5. Add an isolated runner before accepting untrusted code.
 
 Do not introduce SQLite, a daemon, a general shell tool, a course marketplace, or a rich mutable web client until measured use proves a need.
 
@@ -210,8 +211,8 @@ The approved wide layout is:
 ├───────────────┬──────────────────────────────────┬───────────────┤
 │ Problems      │ conversation / problem           │ Session       │
 │ Sessions      │ evidence and coaching            │ Files         │
-│ History       │                                  │ Run status    │
-│               │                                  │ Notes         │
+│               │                                  │ Run status    │
+│               │                                  │ Notes/sources │
 ├───────────────┴──────────────────────────────────┴───────────────┤
 │ > type a message or command                                     │
 └─────────────────────────────────────────────────────────────────┘
