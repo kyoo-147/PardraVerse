@@ -21,6 +21,7 @@ import type { ConversationSession } from "./types.js";
 import type { SessionSummary } from "./session-store.js";
 import { answerOffline } from "./offline-chat.js";
 import { PracticeWorkspace } from "./practice.js";
+import { createConversation, selectAdjacentConversation, type SessionDirection } from "./ui-interactions.js";
 import { contentText, createShellModel, formatTurnTime } from "./ui/view-model.js";
 import { makeContext, makeFooter, makeHeader, makeSidebar, makeStatus, makeTabs } from "./ui/shell.js";
 import { c, theme, fgAnsi, bgAnsi, TerminalThemeManager } from "./ui/theme.js";
@@ -146,6 +147,20 @@ export async function launchChat(root = process.cwd()): Promise<void> {
     tui.requestRender();
   };
 
+  const currentMessages = (): AgentMessage[] =>
+    runtime && !localFallbackActive ? [...runtime.agent.state.messages] as AgentMessage[] : [...offlineMessages];
+
+  const showSession = async (session: ConversationSession): Promise<void> => {
+    offlineMessages = [...session.messages];
+    localFallbackActive = !runtime;
+    if (runtime) runtime.agent.state.messages = [...session.messages];
+    transcript.clear();
+    const history = session.messages.filter((message) => message.role === "user" || message.role === "assistant");
+    if (history.length) for (const message of history) renderStoredMessage(transcript, message);
+    else renderWelcome(transcript, Boolean(runtime), offlineReason);
+    await refreshShell();
+  };
+
   installLayout();
   tui.setFocus(editor);
 
@@ -233,8 +248,9 @@ export async function launchChat(root = process.cwd()): Promise<void> {
       return;
     }
     if (text === "/new" || text.startsWith("/new ")) {
+      const messages = currentMessages();
+      const session = await createConversation(chatStore.sessions, messages, text.slice(5).trim() || undefined);
       runtime?.agent.reset();
-      const session = await chatStore.sessions.create({ title: text.slice(5).trim() || undefined });
       offlineMessages = [];
       localFallbackActive = !runtime;
       transcript.clear();
@@ -244,15 +260,9 @@ export async function launchChat(root = process.cwd()): Promise<void> {
       return;
     }
     if (text.startsWith("/open ")) {
+      await chatStore.replaceMessages(currentMessages());
       const session = await resolveSession(chatStore, text.slice(6).trim());
-      offlineMessages = [...session.messages];
-      localFallbackActive = !runtime;
-      if (runtime) runtime.agent.state.messages = [...session.messages];
-      transcript.clear();
-      const history = session.messages.filter((message) => message.role === "user" || message.role === "assistant");
-      if (history.length) for (const message of history) renderStoredMessage(transcript, message);
-      else renderWelcome(transcript, Boolean(runtime), offlineReason);
-      await refreshShell();
+      await showSession(session);
       return;
     }
     if (text.startsWith("/rename ")) {
@@ -277,7 +287,7 @@ export async function launchChat(root = process.cwd()): Promise<void> {
     if (text === "/help") {
       transcript.addChild(
         new Text(
-          c.muted("  Practice: describe a goal · run a solution · review a failure\n  Sessions: /sessions · /new [title] · /open <id> · /rename <title> · /archive\n  Runtime: /quit"),
+          c.muted("  Practice: describe a goal · run a solution · review a failure\n  Sessions: /sessions · /new [title] · /open <id> · /rename <title> · /archive\n  Shortcuts: Ctrl+N new · Ctrl+PageUp previous · Ctrl+PageDown next\n  Runtime: /quit"),
           3,
           0
         )
@@ -333,7 +343,50 @@ export async function launchChat(root = process.cwd()): Promise<void> {
     }
   }
 
+  let changingSession = false;
+  const runSessionShortcut = async (action: "new" | SessionDirection): Promise<void> => {
+    if (changingSession) return;
+    if (runtime?.agent.state.isStreaming) {
+      status.setText(c.muted("  finish or abort the current response before switching sessions"));
+      tui.requestRender();
+      return;
+    }
+    changingSession = true;
+    editor.disableSubmit = true;
+    try {
+      if (action === "new") {
+        const messages = currentMessages();
+        const session = await createConversation(chatStore.sessions, messages);
+        runtime?.agent.reset();
+        await showSession(session);
+        renderNotice(transcript, `Opened ${session.id.slice(0, 8)}.`);
+      } else {
+        const session = await selectAdjacentConversation(chatStore.sessions, currentMessages(), action);
+        await showSession(session);
+      }
+      status.setText("");
+    } catch (error) {
+      status.setText(c.errorDot(`  ${error instanceof Error ? error.message : String(error)}`));
+      tui.requestRender();
+    } finally {
+      changingSession = false;
+      editor.disableSubmit = false;
+    }
+  };
+
   tui.addInputListener((data) => {
+    if (matchesKey(data, Key.ctrl("n"))) {
+      void runSessionShortcut("new");
+      return { consume: true };
+    }
+    if (matchesKey(data, Key.ctrl("pageUp"))) {
+      void runSessionShortcut("previous");
+      return { consume: true };
+    }
+    if (matchesKey(data, Key.ctrl("pageDown"))) {
+      void runSessionShortcut("next");
+      return { consume: true };
+    }
     if (!matchesKey(data, Key.ctrl("c"))) return undefined;
     if (runtime?.agent.state.isStreaming) {
       runtime.agent.abort();
