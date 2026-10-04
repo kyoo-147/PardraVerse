@@ -1,7 +1,7 @@
 # PardraVerse product phase contract
 
-Status: accepted product direction for the current MVP phase  
-Last reviewed: 2026-10-03  
+Status: accepted product direction for the current MVP phase
+Last reviewed: 2026-10-03
 Evidence baseline: repository `main` through the cream-shell implementation at `07fbdf1`, plus live terminal validation
 Herdr reference baseline: `herdrdev/herdr` at `5da0a01e`
 
